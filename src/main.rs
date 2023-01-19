@@ -1,4 +1,4 @@
-use std::{env, fs};
+use std::{collections::HashSet, env, fs};
 
 fn main() {
     // parse './main day input.txt'
@@ -26,6 +26,11 @@ fn main() {
             let result = day02_part2(&input);
             println!("Result of day02_part2: {}", result);
         }
+        "day03" => {
+            let result = day03(&input);
+            println!("Result of day03: {}", result);
+        }
+
         _ => panic!("Day not implemented"),
     };
 }
@@ -165,7 +170,7 @@ fn day02_part2(input: &str) -> i32 {
                 Hand::Paper => Hand::Scissors,
                 Hand::Scissors => Hand::Rock,
             },
-                _ => panic!("Invalid strategy"),
+            _ => panic!("Invalid strategy"),
         }
     }
 
@@ -180,6 +185,39 @@ fn day02_part2(input: &str) -> i32 {
 
             points(&me) + score(&opponent, &me)
         })
+        .sum()
+}
+
+fn day03_priority(c: char) -> i32 {
+    match c {
+        'a'..='z' => c as i32 - 'a' as i32 + 1,
+        'A'..='Z' => c as i32 - 'A' as i32 + 27,
+        _ => -1,
+    }
+}
+
+fn find_duplicate_in_string_halves(s: &str) -> char {
+    let string = s.to_string();
+
+    let top_half = string.get(0..string.len() / 2).unwrap();
+    let bottom_half = string.get(string.len() / 2..).unwrap();
+
+    let char_counts: HashSet<char> = HashSet::from_iter(top_half.chars());
+
+    for c in bottom_half.chars() {
+        if char_counts.contains(&c) {
+            return c;
+        }
+    }
+
+    return ' ';
+}
+
+fn day03(s: &str) -> i32 {
+    s.trim()
+        .split("\n")
+        .map(|line| find_duplicate_in_string_halves(line))
+        .map(|c| day03_priority(c))
         .sum()
 }
 
@@ -218,5 +256,29 @@ mod tests {
     fn test_day02() {
         let s = "A X";
         assert_eq!(day02(s), 4 as i32);
+    }
+
+    #[test]
+    fn test_day03() {
+        assert_eq!(day03_priority('a'), 1 as i32);
+        assert_eq!(day03_priority('b'), 2 as i32);
+        assert_eq!(day03_priority('Z'), 52 as i32);
+
+        assert_eq!(find_duplicate_in_string_halves("aa"), 'a');
+        assert_eq!(find_duplicate_in_string_halves("bsb"), 'b');
+
+        assert_eq!(find_duplicate_in_string_halves("vJrwpWtwJgWrhcsFMMfFFhFp"), 'p');
+        assert_eq!(day03_priority('p'), 16 as i32);
+        assert_eq!(day03_priority('P'), 42 as i32);
+
+        let test_data = r#"vJrwpWtwJgWrhcsFMMfFFhFp
+jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
+PmmdzqPrVvPwwTWBwg
+wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
+ttgJtRGJQctTZtZT
+CrZsJsPPZsGzwwsLwLmpwMDw
+"#;
+
+            assert_eq!(day03(test_data), 157 as i32);
     }
 }
