@@ -30,6 +30,10 @@ fn main() {
             let result = day03(&input);
             println!("Result of day03: {}", result);
         }
+        "day03_2" => {
+            let result = day03_part2(&input);
+            println!("Result of day03_part2: {}", result);
+        }
 
         _ => panic!("Day not implemented"),
     };
@@ -196,21 +200,47 @@ fn day03_priority(c: char) -> i32 {
     }
 }
 
-fn find_duplicate_in_string_halves(s: &str) -> char {
+fn split_string_in_two(s: &str) -> (String, String) {
     let string = s.to_string();
 
     let top_half = string.get(0..string.len() / 2).unwrap();
     let bottom_half = string.get(string.len() / 2..).unwrap();
 
-    let char_counts: HashSet<char> = HashSet::from_iter(top_half.chars());
+    return (top_half.to_string(), bottom_half.to_string());
+}
 
-    for c in bottom_half.chars() {
-        if char_counts.contains(&c) {
-            return c;
-        }
+fn find_duplicate_in_string_halves(s: &str) -> char {
+    let (top_half, bottom_half) = split_string_in_two(s);
+
+    let top_hash: HashSet<char> = HashSet::from_iter(top_half.chars());
+    let bottom_hash: HashSet<char> = HashSet::from_iter(bottom_half.chars());
+
+    let mut intersection: Vec<char> = top_hash.intersection(&bottom_hash).cloned().collect();
+
+    if intersection.len() == 1 {
+        return intersection.pop().unwrap();
     }
 
-    return ' ';
+    return '\0';
+}
+
+fn find_triplicate_in_string_thirds(a: &str, b: &str, c: &str) -> char {
+    let a_hash: HashSet<char> = HashSet::from_iter(a.chars());
+    let b_hash: HashSet<char> = HashSet::from_iter(b.chars());
+    let c_hash: HashSet<char> = HashSet::from_iter(c.chars());
+
+    let mut intersection: Vec<char> = a_hash
+        .intersection(&b_hash)
+        .cloned()
+        .collect();
+
+    intersection.retain(|c| c_hash.contains(c));
+
+    if intersection.len() == 1 {
+        return intersection.pop().unwrap();
+    }
+
+    return '\0';
 }
 
 fn day03(s: &str) -> i32 {
@@ -219,6 +249,23 @@ fn day03(s: &str) -> i32 {
         .map(|line| find_duplicate_in_string_halves(line))
         .map(|c| day03_priority(c))
         .sum()
+}
+
+fn day03_part2(s: &str) -> i32 {
+    let mut lines = s.trim()
+    .split("\n").collect::<Vec<&str>>();
+
+    let mut prio_sum = 0;
+
+    while lines.len() != 0 {
+        let a = lines.pop().unwrap();
+        let b = lines.pop().unwrap();
+        let c = lines.pop().unwrap();
+
+        prio_sum += day03_priority(find_triplicate_in_string_thirds(a, b, c));
+    }
+
+        return prio_sum;
 }
 
 #[cfg(test)]
@@ -267,7 +314,10 @@ mod tests {
         assert_eq!(find_duplicate_in_string_halves("aa"), 'a');
         assert_eq!(find_duplicate_in_string_halves("bsb"), 'b');
 
-        assert_eq!(find_duplicate_in_string_halves("vJrwpWtwJgWrhcsFMMfFFhFp"), 'p');
+        assert_eq!(
+            find_duplicate_in_string_halves("vJrwpWtwJgWrhcsFMMfFFhFp"),
+            'p'
+        );
         assert_eq!(day03_priority('p'), 16 as i32);
         assert_eq!(day03_priority('P'), 42 as i32);
 
@@ -279,6 +329,20 @@ ttgJtRGJQctTZtZT
 CrZsJsPPZsGzwwsLwLmpwMDw
 "#;
 
-            assert_eq!(day03(test_data), 157 as i32);
+        assert_eq!(day03(test_data), 157 as i32);
+    }
+
+    #[test]
+    fn test_day03_part2() {
+        assert_eq!(find_triplicate_in_string_thirds("a", "a", "a"), 'a');
+
+        let test_data = r#"vJrwpWtwJgWrhcsFMMfFFhFp
+jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
+PmmdzqPrVvPwwTWBwg
+wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
+ttgJtRGJQctTZtZT
+CrZsJsPPZsGzwwsLwLmpwMDw
+"#;
+        assert_eq!(day03_part2(test_data), 70 as i32);
     }
 }
