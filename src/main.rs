@@ -34,6 +34,14 @@ fn main() {
             let result = day03_part2(&input);
             println!("Result of day03_part2: {}", result);
         }
+        "day04" => {
+            let result = day04(&input);
+            println!("Result of day04: {}", result);
+        }
+        "day04_2" => {
+            let result = day04_part2(&input);
+            println!("Result of day04_part2: {}", result);
+        }
 
         _ => panic!("Day not implemented"),
     };
@@ -229,10 +237,7 @@ fn find_triplicate_in_string_thirds(a: &str, b: &str, c: &str) -> char {
     let b_hash: HashSet<char> = HashSet::from_iter(b.chars());
     let c_hash: HashSet<char> = HashSet::from_iter(c.chars());
 
-    let mut intersection: Vec<char> = a_hash
-        .intersection(&b_hash)
-        .cloned()
-        .collect();
+    let mut intersection: Vec<char> = a_hash.intersection(&b_hash).cloned().collect();
 
     intersection.retain(|c| c_hash.contains(c));
 
@@ -252,8 +257,7 @@ fn day03(s: &str) -> i32 {
 }
 
 fn day03_part2(s: &str) -> i32 {
-    let mut lines = s.trim()
-    .split("\n").collect::<Vec<&str>>();
+    let mut lines = s.trim().split("\n").collect::<Vec<&str>>();
 
     let mut prio_sum = 0;
 
@@ -265,7 +269,68 @@ fn day03_part2(s: &str) -> i32 {
         prio_sum += day03_priority(find_triplicate_in_string_thirds(a, b, c));
     }
 
-        return prio_sum;
+    return prio_sum;
+}
+
+#[derive(Debug)]
+struct Range(i32, i32);
+
+// PartialEq trait
+impl PartialEq for Range {
+    fn eq(&self, other: &Range) -> bool {
+        return self.0 == other.0 && self.1 == other.1;
+    }
+}
+
+impl Range {
+    fn contains(&self, other: &Range) -> bool {
+        return other.0 >= self.0 && other.1 <= self.1;
+    }
+
+    fn overlaps(&self, other: &Range) -> bool {
+        return (self.0 <= other.1 && self.1 >= other.0)
+            || (self.0 >= other.1 && self.1 <= other.1);
+    }
+}
+
+fn split_into_range(s: &str) -> Range {
+    let mut split = s.split("-");
+
+    let min = split.next().unwrap().parse::<i32>().unwrap();
+    let max = split.next().unwrap().parse::<i32>().unwrap();
+
+    return Range(min, max);
+}
+
+fn split_ranges_line(s: &str) -> (Range, Range) {
+    let mut split = s.split(",");
+
+    let first = split.next().unwrap();
+    let second = split.next().unwrap();
+
+    return (split_into_range(first), split_into_range(second));
+}
+
+fn is_fully_contained(left: &Range, right: &Range) -> bool {
+    left.contains(&right) || right.contains(&left)
+}
+
+fn day04(input: &str) -> i32 {
+    input
+        .trim()
+        .split("\n")
+        .map(|line| split_ranges_line(line))
+        .filter(|(left, right)| is_fully_contained(left, right))
+        .count() as i32
+}
+
+fn day04_part2(input: &str) -> i32 {
+    input
+        .trim()
+        .split("\n")
+        .map(|line| split_ranges_line(line))
+        .filter(|(left, right)| left.overlaps(right))
+        .count() as i32
 }
 
 #[cfg(test)]
@@ -344,5 +409,37 @@ ttgJtRGJQctTZtZT
 CrZsJsPPZsGzwwsLwLmpwMDw
 "#;
         assert_eq!(day03_part2(test_data), 70 as i32);
+    }
+
+    #[test]
+    fn test_day04() {
+        assert_eq!(split_into_range("6-6"), Range(6, 6));
+
+        assert_eq!(split_ranges_line("1-3,6-6"), (Range(1, 3), Range(6, 6)));
+        assert_eq!(split_ranges_line("1-2,3-4"), (Range(1, 2), Range(3, 4)));
+
+        assert_eq!(is_fully_contained(&Range(1, 7), &Range(2, 2)), true);
+        assert_eq!(is_fully_contained(&Range(1, 1), &Range(2, 2)), false);
+
+        let test_data = r#"2-4,6-8
+2-3,4-5
+5-7,7-9
+2-8,3-7
+6-6,4-6
+2-6,4-8"#;
+
+        assert_eq!(day04(test_data), 2 as i32);
+    }
+
+    #[test]
+    fn test_day04_part2() {
+        assert_eq!(Range(1, 5).overlaps(&Range(5, 10)), true);
+        assert_eq!(Range(1, 5).overlaps(&Range(6, 10)), false);
+
+        assert_eq!(Range(1, 1).overlaps(&Range(1, 2)), true);
+        assert_eq!(Range(10, 10).overlaps(&Range(1, 2)), false);
+
+        assert_eq!(Range(5, 5).overlaps(&Range(1, 9)), true);
+        assert_eq!(Range(1, 9).overlaps(&Range(5, 5)), true);
     }
 }
