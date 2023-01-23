@@ -339,8 +339,11 @@ fn day05(input: &str) -> String {
     return get_top_string(&dock);
 }
 
-fn day05_part2(_input: &str) -> i32 {
-    0
+fn day05_part2(_input: &str) -> String {
+    let (init, moves) = split_into_moves_and_init(_input);
+    let mut dock = dock_from_string(&init);
+    apply_crate_moves_lines_inorder(&mut dock, &moves);
+    return get_top_string(&dock);
 }
 
 fn day04_part2(input: &str) -> i32 {
@@ -361,7 +364,7 @@ fn get_top_string(dock: &Day05Dock) -> String {
         .collect()
 }
 
-fn move_crate(dock: &mut Day05Dock, count: usize, from: usize, to: usize) {
+fn move_crates(dock: &mut Day05Dock, count: usize, from: usize, to: usize) {
     for _ in 0..count {
         if dock[from - 1].len() <= 1 {
             return;
@@ -382,7 +385,7 @@ fn apply_crate_moves_line(dock: &mut Day05Dock, instruction: &str) {
     let _to = split.next().unwrap();
     let to = split.next().unwrap().parse::<usize>().unwrap();
 
-    move_crate(dock, count, from, to);
+    move_crates(dock, count, from, to);
 }
 
 fn apply_crate_moves_lines(dock: &mut Day05Dock, input: &str) {
@@ -390,6 +393,41 @@ fn apply_crate_moves_lines(dock: &mut Day05Dock, input: &str) {
         .trim()
         .split("\n")
         .for_each(|line| apply_crate_moves_line(dock, line));
+}
+
+fn move_crates_inorder(dock: &mut Day05Dock, count: usize, from: usize, to: usize) {
+    assert_ne!(from, to);
+
+    let mut split_pos = dock[from - 1].len() - count;
+    if split_pos <= 0 {
+        split_pos = 1;
+    }
+
+    let binding = dock[from - 1].clone();
+    let (front, back) = binding.split_at(split_pos);
+    
+    dock[from - 1] = front.to_string();
+    dock[to - 1].push_str(back);
+}
+
+fn apply_crate_moves_line_inorder(dock: &mut Day05Dock, instruction: &str) {
+    let mut split = instruction.split(" ");
+
+    let _move = split.next().unwrap();
+    let count = split.next().unwrap().parse::<usize>().unwrap();
+    let _from = split.next().unwrap();
+    let from = split.next().unwrap().parse::<usize>().unwrap();
+    let _to = split.next().unwrap();
+    let to = split.next().unwrap().parse::<usize>().unwrap();
+
+    move_crates_inorder(dock, count, from, to);
+}
+
+fn apply_crate_moves_lines_inorder(dock: &mut Day05Dock, input: &str) {
+    input
+        .trim()
+        .split("\n")
+        .for_each(|line| apply_crate_moves_line_inorder(dock, line));
 }
 
 fn dock_from_string(s: &str) -> Day05Dock {
@@ -559,7 +597,7 @@ move 1 from 1 to 2"#;
         assert_eq!(dock.len(), 3 as usize);
         assert_eq!(get_top_string(&dock), "NDP");
 
-        move_crate(&mut dock, 1, 2, 1);
+        move_crates(&mut dock, 1, 2, 1);
         assert_eq!(get_top_string(&dock), "DCP");
 
         let mut dock = dock_from_string(&init);
@@ -575,5 +613,22 @@ move 1 from 1 to 2"#;
         let mut dock = dock_from_string(&init);
         apply_crate_moves_lines(&mut dock, &moves);
         assert_eq!(get_top_string(&dock), "CMZ");
+    }
+
+    #[test]
+    fn test_day05_part2() {
+        let test_data = r#"    [D]    
+[N] [C]    
+[Z] [M] [P]
+ 1   2   3 
+
+move 1 from 2 to 1
+move 3 from 1 to 3
+move 2 from 2 to 1
+move 1 from 1 to 2"#;
+        let (init, moves) = split_into_moves_and_init(test_data);
+        let mut dock = dock_from_string(&init);
+        apply_crate_moves_lines_inorder(&mut dock, &moves);
+        assert_eq!(get_top_string(&dock), "MCD");
     }
 }
