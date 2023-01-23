@@ -42,6 +42,14 @@ fn main() {
             let result = day04_part2(&input);
             println!("Result of day04_part2: {}", result);
         }
+        "day05" => {
+            let result = day05(&input);
+            println!("Result of day05: {}", result);
+        }
+        "day05_2" => {
+            let result = day05_part2(&input);
+            println!("Result of day05_part2: {}", result);
+        }
 
         _ => panic!("Day not implemented"),
     };
@@ -324,6 +332,17 @@ fn day04(input: &str) -> i32 {
         .count() as i32
 }
 
+fn day05(input: &str) -> String {
+    let (init, moves) = split_into_moves_and_init(input);
+    let mut dock = dock_from_string(&init);
+    apply_crate_moves_lines(&mut dock, &moves);
+    return get_top_string(&dock);
+}
+
+fn day05_part2(_input: &str) -> i32 {
+    0
+}
+
 fn day04_part2(input: &str) -> i32 {
     input
         .trim()
@@ -331,6 +350,78 @@ fn day04_part2(input: &str) -> i32 {
         .map(|line| split_ranges_line(line))
         .filter(|(left, right)| left.overlaps(right))
         .count() as i32
+}
+
+type Day05Stack = String;
+type Day05Dock = Vec<Day05Stack>;
+
+fn get_top_string(dock: &Day05Dock) -> String {
+    dock.iter()
+        .map(|stack| stack.chars().last().unwrap())
+        .collect()
+}
+
+fn move_crate(dock: &mut Day05Dock, count: usize, from: usize, to: usize) {
+    for _ in 0..count {
+        if dock[from - 1].len() <= 1 {
+            return;
+        }
+
+        let top = dock[from - 1].pop().unwrap();
+        dock[to - 1].push(top);
+    }
+}
+
+fn apply_crate_moves_line(dock: &mut Day05Dock, instruction: &str) {
+    let mut split = instruction.split(" ");
+
+    let _move = split.next().unwrap();
+    let count = split.next().unwrap().parse::<usize>().unwrap();
+    let _from = split.next().unwrap();
+    let from = split.next().unwrap().parse::<usize>().unwrap();
+    let _to = split.next().unwrap();
+    let to = split.next().unwrap().parse::<usize>().unwrap();
+
+    move_crate(dock, count, from, to);
+}
+
+fn apply_crate_moves_lines(dock: &mut Day05Dock, input: &str) {
+    input
+        .trim()
+        .split("\n")
+        .for_each(|line| apply_crate_moves_line(dock, line));
+}
+
+fn dock_from_string(s: &str) -> Day05Dock {
+    let mut dock = Day05Dock::new();
+
+    let mut lines = s.trim_matches('\n').split("\n").collect::<Vec<&str>>();
+
+    let numberline = lines.pop().unwrap();
+    let number_of_stacks = numberline.split(" ").filter(|s| s.len() > 0).count();
+    dock.resize(number_of_stacks, " ".to_string());
+
+    lines.reverse();
+    for line in lines {
+        let chars = line.chars().skip(1).step_by(4);
+
+        for (i, c) in chars.enumerate() {
+            if c != ' ' {
+                dock[i].push(c);
+            }
+        }
+    }
+
+    return dock;
+}
+
+fn split_into_moves_and_init(s: &str) -> (String, String) {
+    let mut split = s.trim_matches('\n').split("\n\n");
+
+    let moves = split.next().unwrap();
+    let init = split.next().unwrap();
+
+    return (moves.to_string(), init.to_string());
 }
 
 #[cfg(test)]
@@ -441,5 +532,48 @@ CrZsJsPPZsGzwwsLwLmpwMDw
 
         assert_eq!(Range(5, 5).overlaps(&Range(1, 9)), true);
         assert_eq!(Range(1, 9).overlaps(&Range(5, 5)), true);
+    }
+
+    #[test]
+    fn test_day05() {
+        let dock = Day05Dock::new();
+        assert_eq!(dock.len(), 0 as usize);
+
+        let dock = dock_from_string("[A]\n1");
+        assert_eq!(dock.len(), 1 as usize);
+        assert_eq!(get_top_string(&dock), "A");
+
+        let test_data = r#"    [D]    
+[N] [C]    
+[Z] [M] [P]
+ 1   2   3 
+
+move 1 from 2 to 1
+move 3 from 1 to 3
+move 2 from 2 to 1
+move 1 from 1 to 2"#;
+
+        let (init, moves) = split_into_moves_and_init(test_data);
+
+        let mut dock = dock_from_string(&init);
+        assert_eq!(dock.len(), 3 as usize);
+        assert_eq!(get_top_string(&dock), "NDP");
+
+        move_crate(&mut dock, 1, 2, 1);
+        assert_eq!(get_top_string(&dock), "DCP");
+
+        let mut dock = dock_from_string(&init);
+        apply_crate_moves_line(&mut dock, "move 1 from 2 to 1");
+        assert_eq!(get_top_string(&dock), "DCP");
+        apply_crate_moves_line(&mut dock, "move 3 from 1 to 3");
+        assert_eq!(get_top_string(&dock), " CZ");
+        apply_crate_moves_line(&mut dock, "move 2 from 2 to 1");
+        assert_eq!(get_top_string(&dock), "M Z");
+        apply_crate_moves_line(&mut dock, "move 1 from 1 to 2");
+        assert_eq!(get_top_string(&dock), "CMZ");
+
+        let mut dock = dock_from_string(&init);
+        apply_crate_moves_lines(&mut dock, &moves);
+        assert_eq!(get_top_string(&dock), "CMZ");
     }
 }
