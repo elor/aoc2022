@@ -53,7 +53,7 @@ fn part1(input: &str) -> i32 {
 
     input
         .trim()
-        .split("\n")
+        .lines()
         .map(|s| {
             let opponent = to_hand(s.chars().nth(0).unwrap());
             let me = to_hand(s.chars().nth(2).unwrap());
@@ -127,7 +127,7 @@ fn part2(input: &str) -> i32 {
 
     input
         .trim()
-        .split("\n")
+        .lines()
         .map(|s| {
             let opponent = to_hand(s.chars().nth(0).unwrap());
             let strategy = s.chars().nth(2).unwrap();

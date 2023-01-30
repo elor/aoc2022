@@ -59,14 +59,14 @@ fn find_triplicate_in_string_thirds(a: &str, b: &str, c: &str) -> char {
 
 fn part1(s: &str) -> i32 {
     s.trim()
-        .split("\n")
+        .lines()
         .map(|line| find_duplicate_in_string_halves(line))
         .map(|c| day03_priority(c))
         .sum()
 }
 
 fn part2(s: &str) -> i32 {
-    let mut lines = s.trim().split("\n").collect::<Vec<&str>>();
+    let mut lines = s.trim().lines().collect::<Vec<&str>>();
 
     let mut prio_sum = 0;
 

@@ -58,7 +58,7 @@ fn apply_crate_moves_line(dock: &mut Day05Dock, instruction: &str) {
 fn apply_crate_moves_lines(dock: &mut Day05Dock, input: &str) {
     input
         .trim()
-        .split("\n")
+        .lines()
         .for_each(|line| apply_crate_moves_line(dock, line));
 }
 
@@ -93,14 +93,14 @@ fn apply_crate_moves_line_inorder(dock: &mut Day05Dock, instruction: &str) {
 fn apply_crate_moves_lines_inorder(dock: &mut Day05Dock, input: &str) {
     input
         .trim()
-        .split("\n")
+        .lines()
         .for_each(|line| apply_crate_moves_line_inorder(dock, line));
 }
 
 fn dock_from_string(s: &str) -> Day05Dock {
     let mut dock = Day05Dock::new();
 
-    let mut lines = s.trim_matches('\n').split("\n").collect::<Vec<&str>>();
+    let mut lines = s.trim_matches('\n').lines().collect::<Vec<&str>>();
 
     let numberline = lines.pop().unwrap();
     let number_of_stacks = numberline.split(" ").filter(|s| s.len() > 0).count();

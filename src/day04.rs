@@ -54,7 +54,7 @@ fn is_fully_contained(left: &Range, right: &Range) -> bool {
 fn part1(input: &str) -> i32 {
     input
         .trim()
-        .split("\n")
+        .lines()
         .map(|line| split_ranges_line(line))
         .filter(|(left, right)| is_fully_contained(left, right))
         .count() as i32
@@ -63,7 +63,7 @@ fn part1(input: &str) -> i32 {
 fn part2(input: &str) -> i32 {
     input
         .trim()
-        .split("\n")
+        .lines()
         .map(|line| split_ranges_line(line))
         .filter(|(left, right)| left.overlaps(right))
         .count() as i32

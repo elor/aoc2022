@@ -1,7 +1,7 @@
 use std::fs;
 
 #[allow(dead_code)]
-bn main() {
+fn main() {
     let input = fs::read_to_string("res/day01.txt").unwrap();
 
     println!("Result of part 1: {}", part1(&input));
@@ -12,7 +12,7 @@ fn part1(input: &str) -> i32 {
     let sums = input
         .trim()
         .split("\n\n")
-        .map(|s| s.split("\n").map(|v| v.parse::<i32>().unwrap()).sum())
+        .map(|s| s.lines().map(|v| v.parse::<i32>().unwrap()).sum())
         .collect::<Vec<i32>>();
 
     // max of sums
@@ -23,7 +23,7 @@ fn part2(input: &str) -> i32 {
     let mut sums = input
         .trim()
         .split("\n\n")
-        .map(|s| s.split("\n").map(|v| v.parse::<i32>().unwrap()).sum())
+        .map(|s| s.lines().map(|v| v.parse::<i32>().unwrap()).sum())
         .collect::<Vec<i32>>();
 
     sums.sort();
