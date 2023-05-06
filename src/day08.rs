@@ -113,69 +113,6 @@ fn highest_scenic_score(grid: &Vec<Vec<u32>>) -> u32 {
     return highest_score;
 }
 
-fn count_visible_treetops(grid: &Vec<Vec<u32>>, x: usize, y: usize) -> i32 {
-    let maxheight = grid[y][x];
-    let mut count = 0;
-
-    if x > 0 {
-        let mut minheight = 0;
-        for x in (x - 1)..=0 {
-            let height = grid[y][x];
-            if height > maxheight {
-                continue;
-            }
-            if height > minheight {
-                count += 1;
-                minheight = height;
-            }
-        }
-    }
-
-    if x < grid[0].len() - 1 {
-        let mut minheight = 0;
-        for x in x + 1..grid.len() {
-            let height = grid[y][x];
-            if height > maxheight {
-                continue;
-            }
-            if height > minheight {
-                count += 1;
-                minheight = height;
-            }
-        }
-    }
-
-    if y > 0 {
-        let mut minheight = 0;
-        for y in y - 1..=0 {
-            let height = grid[y][x];
-            if height > maxheight {
-                continue;
-            }
-            if height > minheight {
-                count += 1;
-                minheight = height;
-            }
-        }
-    }
-
-    if y < grid.len() - 1 {
-        let mut minheight = 0;
-        for y in y + 1..grid.len() {
-            let height = grid[y][x];
-            if height > maxheight {
-                continue;
-            }
-            if height > minheight {
-                count += 1;
-                minheight = height;
-            }
-        }
-    }
-
-    return count;
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
