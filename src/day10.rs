@@ -1,4 +1,4 @@
-use std::{collections::hash_map, fs};
+use std::fs;
 
 fn main() {
     let input = fs::read_to_string("res/day10.txt").unwrap();
@@ -17,8 +17,8 @@ fn part2(input: &str) -> i32 {
 }
 
 enum Opcode {
-    noop,
-    addx,
+    Noop,
+    Addx,
 }
 
 type Instruction = (Opcode, i32);
@@ -26,14 +26,14 @@ type Instruction = (Opcode, i32);
 fn line_to_instruction(line: &str) -> Instruction {
     let mut words = line.trim().split_whitespace();
     let opcode = match words.next() {
-        Some("noop") => Opcode::noop,
-        Some("addx") => Opcode::addx,
+        Some("noop") => Opcode::Noop,
+        Some("addx") => Opcode::Addx,
         _ => panic!("Invalid opcode for line: {}", line.trim()),
     };
 
     let operand = match opcode {
-        Opcode::noop => 0,
-        Opcode::addx => words.next().unwrap().parse::<i32>().unwrap(),
+        Opcode::Noop => 0,
+        Opcode::Addx => words.next().unwrap().parse::<i32>().unwrap(),
     };
 
     (opcode, operand)
@@ -41,13 +41,14 @@ fn line_to_instruction(line: &str) -> Instruction {
 
 fn duration(opcode: &Opcode) -> i32 {
     match opcode {
-        Opcode::noop => 1,
-        Opcode::addx => 2,
+        Opcode::Noop => 1,
+        Opcode::Addx => 2,
     }
 }
 
 struct CPU {
-    X: i32,
+    x: i32,
+    #[allow(dead_code)]
     cycle: usize,
     history: Vec<i32>,
     program: Vec<Instruction>,
@@ -56,25 +57,26 @@ struct CPU {
 impl CPU {
     fn new(program: Vec<Instruction>) -> CPU {
         CPU {
-            X: 1,
+            x: 1,
             cycle: 0,
             history: vec![1],
             program,
         }
     }
 
-    fn step(&mut self) {}
-
     fn run(&mut self) {
         for (op, arg) in self.program.iter() {
             let duration = duration(op);
             for _ in 0..duration {
-                self.history.push(self.X);
+                /* before cycle */
+                self.history.push(self.x);
+                /* during cycle */
             }
 
+            /* after cycle */
             match op {
-                Opcode::noop => {}
-                Opcode::addx => self.X += arg,
+                Opcode::Noop => {}
+                Opcode::Addx => self.x += arg,
             }
         }
     }
@@ -91,10 +93,6 @@ impl CPU {
         let mut cpu = CPU::from_str(input);
         cpu.run();
         cpu
-    }
-
-    fn signal_strength(&self, cycle: usize) -> i32 {
-        self.history[cycle] * cycle as i32
     }
 
     fn signal_sum(&self) -> i32 {
@@ -264,10 +262,10 @@ noop
     fn test_part1() {
         let cpu = CPU::run_str("");
 
-        assert_eq!(cpu.X, 1);
+        assert_eq!(cpu.x, 1);
         assert_eq!(cpu.cycle, 0);
 
-        assert_eq!(cpu.history[cpu.cycle], cpu.X);
+        assert_eq!(cpu.history[cpu.cycle], cpu.x);
 
         let cpu = CPU::run_str(TEST_INPUT);
 

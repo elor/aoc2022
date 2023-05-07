@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use std::{collections::HashSet, fs, io::Write};
+use std::{collections::HashSet, fs};
 
 fn main() {
     let input = fs::read_to_string("res/day09.txt").unwrap();
@@ -240,6 +240,8 @@ impl Boundary {
 
 #[cfg(test)]
 fn debug_visited(list: &str, rope_length: usize, filename: &str) {
+    use std::io::Write;
+
     let mut file = fs::File::create(filename).unwrap();
 
     let mut grid_for_boundary = Grid::new(rope_length);
@@ -251,7 +253,7 @@ fn debug_visited(list: &str, rope_length: usize, filename: &str) {
     writeln!(file, "== {} ==", "Initial State").unwrap();
     writeln!(file, "{}", grid).unwrap();
 
-    let mut movements = Grid::split_movements(list);
+    let movements = Grid::split_movements(list);
 
     for (direction, amount) in movements {
         writeln!(file, "== {} {} ==", direction, amount).unwrap();
