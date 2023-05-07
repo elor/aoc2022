@@ -13,7 +13,11 @@ fn part1(input: &str) -> i32 {
 }
 
 fn part2(input: &str) -> i32 {
-    input.len() as i32
+    let cpu = CPU::run_str(input);
+
+    println!("{}", cpu.output);
+
+    return -1;
 }
 
 enum Opcode {
@@ -48,10 +52,10 @@ fn duration(opcode: &Opcode) -> i32 {
 
 struct CPU {
     x: i32,
-    #[allow(dead_code)]
     cycle: usize,
     history: Vec<i32>,
     program: Vec<Instruction>,
+    output: String,
 }
 
 impl CPU {
@@ -61,7 +65,16 @@ impl CPU {
             cycle: 0,
             history: vec![1],
             program,
+            output: String::new(),
         }
+    }
+
+    fn screen_x(&self) -> usize {
+        self.cycle % 40
+    }
+
+    fn is_lit(&self) -> bool {
+        (self.screen_x() as i32 - self.x).abs() <= 1
     }
 
     fn run(&mut self) {
@@ -69,8 +82,17 @@ impl CPU {
             let duration = duration(op);
             for _ in 0..duration {
                 /* before cycle */
-                self.history.push(self.x);
+
                 /* during cycle */
+                self.history.push(self.x);
+
+                let c = if self.is_lit() { '#' } else { ' ' };
+                self.output.push(c);
+
+                self.cycle += 1;
+                if self.screen_x() == 0 {
+                    self.output.push('\n');
+                }
             }
 
             /* after cycle */
@@ -279,6 +301,17 @@ noop
         assert_eq!(cpu.signal_sum(), 13140);
     }
 
+    const REFERENCE_OUTPUT: &str = "##  ##  ##  ##  ##  ##  ##  ##  ##  ##  
+###   ###   ###   ###   ###   ###   ### 
+####    ####    ####    ####    ####    
+#####     #####     #####     #####     
+######      ######      ######      ####
+#######       #######       #######     \n";
+
     #[test]
-    fn test_part2() {}
+    fn test_part2() {
+        let cpu = CPU::run_str(TEST_INPUT);
+
+        assert_eq!(cpu.output, REFERENCE_OUTPUT);
+    }
 }
