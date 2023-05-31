@@ -129,7 +129,7 @@ impl CPU {
 }
 
 #[cfg(test)]
-mod tests {
+mod day10 {
     use super::*;
 
     const TEST_INPUT: &str = "addx 15

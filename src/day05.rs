@@ -130,7 +130,7 @@ fn split_into_moves_and_init(s: &str) -> (String, String) {
 }
 
 #[cfg(test)]
-mod tests {
+mod day05 {
     use super::*;
 
     #[test]

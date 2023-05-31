@@ -8,12 +8,21 @@ fn main() {
 }
 
 fn sliding_window_first_appearance(input: &str, window_size: usize) -> usize {
-    input.chars().collect::<Vec<char>>().windows(window_size).enumerate().filter(|(_, w)| {
-        let mut chars = w.iter().map(|c| c.to_string()).collect::<Vec<String>>();
-        chars.sort();
-        chars.dedup();
-        chars.len() == window_size
-    }).map(|(i, _)| i).next().unwrap() + window_size
+    input
+        .chars()
+        .collect::<Vec<char>>()
+        .windows(window_size)
+        .enumerate()
+        .filter(|(_, w)| {
+            let mut chars = w.iter().map(|c| c.to_string()).collect::<Vec<String>>();
+            chars.sort();
+            chars.dedup();
+            chars.len() == window_size
+        })
+        .map(|(i, _)| i)
+        .next()
+        .unwrap()
+        + window_size
 }
 
 fn part1(input: &str) -> usize {
@@ -25,7 +34,7 @@ fn part2(input: &str) -> usize {
 }
 
 #[cfg(test)]
-mod tests {
+mod day06 {
     use super::*;
 
     #[test]

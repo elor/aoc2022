@@ -173,7 +173,6 @@ impl Tree {
                     stack.extend(node.children.iter());
                 }
             }
-
         }
 
         closest
@@ -195,7 +194,7 @@ impl Tree {
 }
 
 #[cfg(test)]
-mod tests {
+mod day07 {
     use super::*;
 
     #[test]
@@ -286,6 +285,9 @@ $ ls
 5626152 d.ext
 7214296 k"#;
         let traversal = Tree::from_str(test_data);
-        assert_eq!(traversal.size_of_dir_with_closest_size_above_max_size(30000000), 24933642);
+        assert_eq!(
+            traversal.size_of_dir_with_closest_size_above_max_size(30000000),
+            24933642
+        );
     }
 }

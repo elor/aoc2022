@@ -114,7 +114,7 @@ fn highest_scenic_score(grid: &Vec<Vec<u32>>) -> u32 {
 }
 
 #[cfg(test)]
-mod tests {
+mod day08 {
     use super::*;
 
     // 5x5 grid with ints

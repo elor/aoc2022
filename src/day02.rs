@@ -140,7 +140,7 @@ fn part2(input: &str) -> i32 {
 }
 
 #[cfg(test)]
-mod tests {
+mod day02 {
     use super::*;
 
     #[test]

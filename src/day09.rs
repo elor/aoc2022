@@ -266,7 +266,7 @@ fn debug_visited(list: &str, rope_length: usize, filename: &str) {
 }
 
 #[cfg(test)]
-mod tests {
+mod day09 {
     use super::*;
 
     const TEST_INPUT_1: &str = "R 4
