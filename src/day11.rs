@@ -8,46 +8,52 @@ fn main() {
     println!("Result of part 2: {}", part2(&input));
 }
 
-fn part1(input: &str) -> i32 {
+fn part1(input: &str) -> usize {
     let mut monkeys = parse_monkeys(input);
 
-    inspection_rounds(&mut monkeys, 20);
+    inspection_rounds_part1(&mut monkeys, 20);
 
-    return monkey_business_level(&monkeys) as i32;
+    return monkey_business_level(&monkeys) as usize;
 }
 
-fn part2(input: &str) -> i32 {
-    input.len() as i32
+fn part2(input: &str) -> usize {
+    let mut monkeys = parse_monkeys(input);
+
+    inspection_rounds_part2(&mut monkeys, 10_000);
+
+    return monkey_business_level(&monkeys) as usize;
 }
 
 #[derive(Debug)]
 enum Operation {
-    Add(i32),
-    Multiply(i32),
-    Divide(i32),
-    Subtract(i32),
+    Add(i64),
+    Multiply(i64),
+    Divide(i64),
+    Subtract(i64),
     Square(),
+    Identity(),
 }
 
 impl Operation {
-    fn apply(&self, input: i32) -> i32 {
+    fn apply(&self, input: i64) -> i64 {
         match self {
             Operation::Add(arg) => input + arg,
             Operation::Multiply(arg) => input * arg,
             Operation::Divide(arg) => input / arg,
             Operation::Subtract(arg) => input - arg,
             Operation::Square() => input * input,
+            Operation::Identity() => input,
         }
     }
 }
 
 #[derive(Debug)]
 enum Test {
-    DivisibleBy(i32),
+    DivisibleBy(i64),
 }
 
 impl Test {
-    fn perform(&self, input: i32) -> bool {
+    fn perform(&self, input: i64) -> bool {
         match self {
             Test::DivisibleBy(divisor) => input % divisor == 0,
         }
@@ -57,7 +63,7 @@ impl Test {
 #[derive(Debug)]
 struct Monkey {
     id: usize,
-    items: Vec<i32>,
+    items: Vec<i64>,
     operation: Operation,
     test: Test,
     if_true: usize,
@@ -87,9 +93,9 @@ impl Monkey {
             } else if let Ok(parsed) = sscanf!(line, "  Starting items: {str}") {
                 monkey.items = parsed
                     .split(", ")
-                    .map(|s| s.parse::<i32>().unwrap())
+                    .map(|s| s.parse::<i64>().unwrap())
                     .collect();
-            } else if let Ok((op, arg)) = sscanf!(line, "  Operation: new = old {char} {i32}") {
+            } else if let Ok((op, arg)) = sscanf!(line, "  Operation: new = old {char} {i64}") {
                 monkey.operation = match op {
                     '+' => Operation::Add(arg),
                     '*' => Operation::Multiply(arg),
@@ -99,7 +105,7 @@ impl Monkey {
                 };
             } else if line == "  Operation: new = old * old" {
                 monkey.operation = Operation::Square();
-            } else if let Ok(divisor) = sscanf!(line, "  Test: divisible by {i32}") {
+            } else if let Ok(divisor) = sscanf!(line, "  Test: divisible by {i64}") {
                 monkey.test = Test::DivisibleBy(divisor);
             } else if let Ok(target) = sscanf!(line, "    If true: throw to monkey {usize}") {
                 monkey.if_true = target;
@@ -132,8 +138,22 @@ fn parse_monkeys(input: &str) -> Vec<Monkey> {
     input.split("\n\n").map(|s| Monkey::from_str(s)).collect()
 }
 
-fn inspection_round(monkeys: &mut Vec<Monkey>) {
-    let mut passed_items: Vec<Vec<i32>> = monkeys.iter().map(|_| Vec::new()).collect();
+fn inspection_round(monkeys: &mut Vec<Monkey>, intermediate_operation: &Operation) {
+    let mut passed_items: Vec<Vec<i64>> = monkeys.iter().map(|_| Vec::new()).collect();
+
+    let divisors = monkeys
+        .iter()
+        .map(|m| match m.test {
+            Test::DivisibleBy(divisor) => divisor,
+        })
+        .collect::<Vec<i64>>();
+
+    let mut denominator: i64 = 1;
+    for divisor in divisors.iter() {
+        denominator = lcm(denominator, *divisor);
+    }
+
+    // println!("Denominator: {}", denominator);
 
     for (monkey_id, monkey) in monkeys.iter_mut().enumerate() {
         // move passed items to the current monkey
@@ -147,7 +167,7 @@ fn inspection_round(monkeys: &mut Vec<Monkey>) {
 
         // three steps:
         // 1. inspect = apply operation
-        // 2. divide by 3
+        // 2. perform intermediate operation, e.g. divide by 3
         // 3. test, throw to target
 
         // inspect items
@@ -155,10 +175,10 @@ fn inspection_round(monkeys: &mut Vec<Monkey>) {
             monkey.items_inspected += 1;
 
             // 1. inspect
-            let new_value = monkey.operation.apply(*item);
+            let new_value = monkey.operation.apply(*item) % denominator;
 
-            // 2. divide by 3
-            let divided_new_value = new_value / 3;
+            // 2. perform operation
+            let divided_new_value = intermediate_operation.apply(new_value);
 
             // 3. test, throw to target
             let test_result = monkey.test.perform(divided_new_value);
@@ -189,11 +209,25 @@ fn print_monkeys(monkeys: &Vec<Monkey>) {
     println!();
 }
 
-fn inspection_rounds(monkeys: &mut Vec<Monkey>, rounds: usize) {
-    print_monkeys(monkeys);
+fn inspection_rounds_part1(monkeys: &mut Vec<Monkey>, rounds: usize) {
+    let op = Operation::Divide(3);
+    inspection_rounds_impl(monkeys, rounds, &op)
+}
+
+fn inspection_rounds_part2(monkeys: &mut Vec<Monkey>, rounds: usize) {
+    let op = Operation::Identity();
+    inspection_rounds_impl(monkeys, rounds, &op)
+}
+
+fn inspection_rounds_impl(
+    monkeys: &mut Vec<Monkey>,
+    rounds: usize,
+    intermediate_operation: &Operation,
+) {
+    // print_monkeys(monkeys);
     for _ in 0..rounds {
-        inspection_round(monkeys);
-        print_monkeys(monkeys);
+        inspection_round(monkeys, intermediate_operation);
+        // print_monkeys(monkeys);
     }
 }
 
@@ -206,6 +240,21 @@ fn monkey_business_level(monkeys: &Vec<Monkey>) -> usize {
     items_inspected.reverse();
 
     return items_inspected[0] * items_inspected[1];
+}
+
+fn gcd(a: i64, b: i64) -> i64 {
+    let mut a = a;
+    let mut b = b;
+    while b != 0 {
+        let t = b;
+        b = a % b;
+        a = t;
+    }
+    return a;
+}
+
+fn lcm(a: i64, b: i64) -> i64 {
+    return a * b / gcd(a, b);
 }
 
 #[cfg(test)]
@@ -259,17 +308,26 @@ Monkey 3:
 
         // run 20 rounds
         let mut monkeys = parse_monkeys(INPUT);
-        inspection_rounds(&mut monkeys, 20);
+        inspection_rounds_part1(&mut monkeys, 20);
         assert_eq!(monkeys[0].items_inspected, 101);
         assert_eq!(monkeys[1].items_inspected, 95);
         assert_eq!(monkeys[2].items_inspected, 7);
         assert_eq!(monkeys[3].items_inspected, 105);
 
         assert_eq!(monkey_business_level(&monkeys), 101 * 105);
+
+        assert_eq!(lcm(1, 1), 1);
+        assert_eq!(lcm(2, 4), 4);
+        assert_eq!(lcm(11, 13), 11 * 13);
     }
 
     #[test]
     fn test_part2() {
-        assert_eq!(2, 2);
+        assert_eq!(10_000, 10000);
+
+        let mut monkeys = parse_monkeys(INPUT);
+        inspection_rounds_part2(&mut monkeys, 10_000);
+
+        assert_eq!(monkey_business_level(&monkeys), 2_713_310_158);
     }
 }
