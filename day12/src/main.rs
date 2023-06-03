@@ -10,11 +10,12 @@ fn main() {
 
 fn part1(input: &str) -> usize {
     let map = Map::from_str(input);
-    map.find_path()
+    map.ascend_to_E()
 }
 
-fn part2(_input: &str) -> usize {
-    0
+fn part2(input: &str) -> usize {
+    let map = Map::from_str(input);
+    map.descend_from_E()
 }
 
 struct Map {
@@ -32,7 +33,7 @@ fn height_char_to_u8(c: char) -> u8 {
     }
 }
 
-fn is_valid_move(from: char, to: char) -> bool {
+fn is_valid_ascent(from: char, to: char) -> bool {
     let from_u8 = height_char_to_u8(from);
     let to_u8 = height_char_to_u8(to);
 
@@ -74,42 +75,23 @@ impl Map {
         }
     }
 
-    fn viable_neighbors(&self, pos: Pos) -> Vec<Pos> {
+    fn get_neighbors(&self, pos: Pos) -> Vec<Pos> {
         let mut neighbors = Vec::new();
 
-        let height = self.get(pos);
-        if height.is_none() {
-            return neighbors;
-        }
-
-        let from = height.unwrap();
-
         if pos.0 > 0 {
-            if let Some(to) = self.get((pos.0 - 1, pos.1)) {
-                if is_valid_move(from, to) {
-                    neighbors.push((pos.0 - 1, pos.1));
-                }
-            }
+            neighbors.push((pos.0 - 1, pos.1));
         }
-        if let Some(to) = self.get((pos.0 + 1, pos.1)) {
-            if is_valid_move(from, to) {
-                neighbors.push((pos.0 + 1, pos.1));
-            }
+        if pos.0 < self.size.0 - 1 {
+            neighbors.push((pos.0 + 1, pos.1));
         }
         if pos.1 > 0 {
-            if let Some(to) = self.get((pos.0, pos.1 - 1)) {
-                if is_valid_move(from, to) {
-                    neighbors.push((pos.0, pos.1 - 1));
-                }
-            }
+            neighbors.push((pos.0, pos.1 - 1));
         }
-        if let Some(to) = self.get((pos.0, pos.1 + 1)) {
-            if is_valid_move(from, to) {
-                neighbors.push((pos.0, pos.1 + 1));
-            }
+        if pos.1 < self.size.1 - 1 {
+            neighbors.push((pos.0, pos.1 + 1));
         }
 
-        neighbors
+        return neighbors;
     }
 
     fn find(&self, c: char) -> Option<Pos> {
@@ -124,33 +106,74 @@ impl Map {
         None
     }
 
-    fn find_path(&self) -> usize {
+    fn ascend_to_E(&self) -> usize {
         let start = self.find('S').unwrap();
         let end = self.find('E').unwrap();
 
-        let max_distance = self.size.0 * self.size.1 + 1;
+        let mut open = self.init_grid(true);
 
-        let mut distance = self.init_grid(max_distance);
-        distance[start.0][start.1] = 0;
-
-        let mut queue: VecDeque<Pos> = VecDeque::new();
-        queue.push_back(start);
+        let mut queue: VecDeque<(Pos, usize)> = VecDeque::new();
+        queue.push_back((start, 0));
+        open[start.0][start.1] = false;
 
         while !queue.is_empty() {
-            let pos = queue.pop_front().unwrap();
+            let (pos, current_distance) = queue.pop_front().unwrap();
 
-            let current_distance = distance[pos.0][pos.1];
+            assert!(!open[pos.0][pos.1]);
+
             if pos == end {
                 return current_distance;
             }
 
             let next_distance = current_distance + 1;
 
-            let neighbors = self.viable_neighbors(pos);
+            let from_height = self.get(pos).unwrap();
+
+            let neighbors = self.get_neighbors(pos);
             for neighbor in neighbors {
-                if distance[neighbor.0][neighbor.1] > next_distance {
-                    distance[neighbor.0][neighbor.1] = next_distance;
-                    queue.push_back(neighbor);
+                let to_height = self.get(neighbor).unwrap();
+
+                if open[neighbor.0][neighbor.1] && is_valid_ascent(from_height, to_height) {
+                    queue.push_back((neighbor, next_distance));
+                    open[neighbor.0][neighbor.1] = false;
+                }
+            }
+        }
+
+        panic!("No path found");
+    }
+
+    fn descend_from_E(&self) -> usize {
+        let end = self.find('E').unwrap();
+
+        let mut open = self.init_grid(true);
+
+        let mut queue: VecDeque<(Pos, usize)> = VecDeque::new();
+        queue.push_back((end, 0));
+        open[end.0][end.1] = false;
+
+        while !queue.is_empty() {
+            let (pos, current_distance) = queue.pop_front().unwrap();
+
+            assert!(!open[pos.0][pos.1]);
+
+            match self.get(pos) {
+                Some('S') => return current_distance,
+                Some('a') => return current_distance,
+                Some(_) => {}
+                None => panic!("Invalid position during descent"),
+            }
+
+            let next_distance = current_distance + 1;
+            let to_height = self.get(pos).unwrap();
+
+            let neighbors = self.get_neighbors(pos);
+            for neighbor in neighbors {
+                let from_height = self.get(neighbor).unwrap();
+
+                if open[neighbor.0][neighbor.1] && is_valid_ascent(from_height, to_height) {
+                    queue.push_back((neighbor, next_distance));
+                    open[neighbor.0][neighbor.1] = false;
                 }
             }
         }
@@ -178,28 +201,31 @@ abdefghi";
         assert_eq!(map.get((0, 1)), Some('a'));
         assert_eq!(map.get((0, 2)), Some('b'));
 
-        assert!(is_valid_move('a', 'a'));
-        assert!(is_valid_move('a', 'b'));
-        assert!(is_valid_move('b', 'a'));
+        assert!(is_valid_ascent('a', 'a'));
+        assert!(is_valid_ascent('a', 'b'));
+        assert!(is_valid_ascent('b', 'a'));
 
-        assert!(is_valid_move('S', 'b'));
-        assert!(is_valid_move('y', 'E'));
-        assert!(!is_valid_move('x', 'E'));
+        assert!(is_valid_ascent('S', 'b'));
+        assert!(is_valid_ascent('y', 'E'));
+        assert!(!is_valid_ascent('x', 'E'));
 
-        assert!(!is_valid_move('a', 'c'));
+        assert!(!is_valid_ascent('a', 'c'));
 
-        assert_eq!(map.viable_neighbors((0, 0)), vec![(1, 0), (0, 1)]);
+        assert_eq!(map.get_neighbors((0, 0)), vec![(1, 0), (0, 1)]);
         assert_eq!(
-            map.viable_neighbors((1, 1)),
+            map.get_neighbors((1, 1)),
             vec![(0, 1), (2, 1), (1, 0), (1, 2)]
         );
 
         assert_eq!(map.find('S'), Some((0, 0)));
         assert_eq!(map.find('E'), Some((2, 5)));
 
-        assert_eq!(map.find_path(), 31);
+        assert_eq!(map.ascend_to_E(), 31);
     }
 
     #[test]
-    fn test_part2() {}
+    fn test_part2() {
+        let map = Map::from_str(INPUT);
+        assert_eq!(map.descend_from_E(), 29);
+    }
 }
