@@ -10,12 +10,12 @@ fn main() {
 
 fn part1(input: &str) -> usize {
     let map = Map::from_str(input);
-    map.ascend_to_E()
+    map.ascend()
 }
 
 fn part2(input: &str) -> usize {
     let map = Map::from_str(input);
-    map.descend_from_E()
+    map.descend()
 }
 
 struct Map {
@@ -106,7 +106,7 @@ impl Map {
         None
     }
 
-    fn ascend_to_E(&self) -> usize {
+    fn ascend(&self) -> usize {
         let start = self.find('S').unwrap();
         let end = self.find('E').unwrap();
 
@@ -143,7 +143,7 @@ impl Map {
         panic!("No path found");
     }
 
-    fn descend_from_E(&self) -> usize {
+    fn descend(&self) -> usize {
         let end = self.find('E').unwrap();
 
         let mut open = self.init_grid(true);
@@ -220,12 +220,12 @@ abdefghi";
         assert_eq!(map.find('S'), Some((0, 0)));
         assert_eq!(map.find('E'), Some((2, 5)));
 
-        assert_eq!(map.ascend_to_E(), 31);
+        assert_eq!(map.ascend(), 31);
     }
 
     #[test]
     fn test_part2() {
         let map = Map::from_str(INPUT);
-        assert_eq!(map.descend_from_E(), 29);
+        assert_eq!(map.descend(), 29);
     }
 }
