@@ -11,8 +11,10 @@ fn part1(input: &str) -> usize {
     index_sum_of_rightly_ordered_pairs_from_str(input)
 }
 
-fn part2(_input: &str) -> i32 {
-    -1
+fn part2(input: &str) -> usize {
+    let product = get_product_of_indices_for_dividers(input, "[[2]]", "[[6]]");
+
+    product
 }
 
 #[derive(Debug, Clone)]
@@ -97,6 +99,14 @@ impl PartialOrd for Item {
             (false, true) => Some(Ordering::Greater),
             _ => None,
         }
+    }
+}
+
+impl Eq for Item {}
+
+impl Ord for Item {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
     }
 }
 
@@ -245,6 +255,46 @@ impl Item {
     }
 }
 
+fn get_vec_of_items_from_str(input: &str) -> Vec<Item> {
+    input
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(Item::from_str)
+        .collect()
+}
+fn get_product_of_indices_for_dividers(
+    input: &str,
+    divider_packet_1: &str,
+    divider_packet_2: &str,
+) -> usize {
+    let mut items = get_vec_of_items_from_str(input);
+
+    let divider_item_1 = Item::from_str(divider_packet_1);
+    let divider_item_2 = Item::from_str(divider_packet_2);
+
+    items.push(divider_item_1.clone());
+    items.push(divider_item_2.clone());
+
+    // sort items
+    items.sort();
+
+    // get position of divider_item_1 and divider_item_2 in sorted items
+    let divider_item_1_index = items
+        .iter()
+        .position(|item| item == &divider_item_1)
+        .unwrap()
+        + 1;
+    let divider_item_2_index = items
+        .iter()
+        .position(|item| item == &divider_item_2)
+        .unwrap()
+        + 1;
+
+    let product = divider_item_1_index * divider_item_2_index;
+
+    product
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -303,7 +353,12 @@ mod tests {
     }
 
     #[test]
-    fn test_part2() {}
+    fn test_part2() {
+        let product =
+            get_product_of_indices_for_dividers(INPUT, DIVIDER_PACKET_1, DIVIDER_PACKET_2);
+
+        assert_eq!(product, 140);
+    }
 
     const INPUT: &str = "[1,1,3,1,1]
 [1,1,5,1,1]
@@ -393,4 +448,7 @@ mod tests {
           - Compare 6 vs 6
           - Compare 7 vs 0
             - Right side is smaller, so inputs are not in the right order";
+
+    const DIVIDER_PACKET_1: &str = "[[2]]";
+    const DIVIDER_PACKET_2: &str = "[[6]]";
 }
