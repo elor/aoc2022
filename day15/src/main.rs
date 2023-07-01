@@ -144,4 +144,76 @@ Sensor at x=17, y=20: closest beacon is at x=21, y=22
 Sensor at x=16, y=7: closest beacon is at x=15, y=3
 Sensor at x=14, y=3: closest beacon is at x=15, y=3
 Sensor at x=20, y=1: closest beacon is at x=15, y=3";
+
+    #[test]
+    fn test_range() {
+        use day15::day15::Range;
+
+        assert_eq!(Range::new(1, 1).len(), 1);
+        assert_eq!(Range::new(1, 2).len(), 2);
+        assert_eq!(Range::new(0, 10).len(), 11);
+
+        let range = Range::new(1, 10);
+
+        assert_eq!(range.join(&Range::new(11, 20)), Some(Range::new(1, 20)));
+
+        assert_eq!(range.join(&Range::new(5, 15)), Some(Range::new(1, 15)));
+
+        assert_eq!(range.join(&Range::new(5, 9)), Some(Range::new(1, 10)));
+
+        assert_eq!(range.join(&Range::new(100, 105)), None);
+
+        let mut ranges = vec![
+            Range::new(1, 1),
+            Range::new(20, 30),
+            Range::new(2, 10),
+            Range::new(28, 31),
+            Range::new(1, 5),
+        ];
+        ranges.sort();
+
+        assert_eq!(
+            ranges,
+            vec![
+                Range::new(1, 5),
+                Range::new(1, 1),
+                Range::new(2, 10),
+                Range::new(20, 30),
+                Range::new(28, 31),
+            ]
+        );
+
+        let big_ranges =
+            ranges
+                .iter()
+                .fold(Vec::<Range>::new(), |mut acc, range| match acc.pop() {
+                    Some(last) => {
+                        println!("last: {:?}, range: {:?}", last, range);
+                        match last.join(range) {
+                            Some(joined_range) => {
+                                println!("joined: {:?}", joined_range);
+                                acc.push(joined_range);
+                            }
+                            None => {
+                                println!("not joined");
+                                acc.push(last);
+                                acc.push(*range);
+                            }
+                        }
+
+                        acc.to_vec()
+                    }
+                    None => {
+                        acc.push(*range);
+                        acc
+                    }
+                });
+
+        assert_eq!(big_ranges, vec![Range::new(1, 10), Range::new(20, 31)]);
+
+        assert_eq!(
+            Range::join_vec(ranges),
+            vec![Range::new(1, 10), Range::new(20, 31)]
+        );
+    }
 }
