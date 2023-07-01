@@ -39,6 +39,10 @@ pub mod day15 {
             false
         }
 
+        pub fn contains(&self, value: i32) -> bool {
+            self.start <= value && value <= self.end
+        }
+
         pub fn join(&self, other: &Self) -> Option<Range> {
             if self.start > other.end + 1 || other.start > self.end + 1 {
                 return None;

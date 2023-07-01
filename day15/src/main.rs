@@ -3,6 +3,8 @@ use std::{
     fs,
 };
 
+use day15::day15::Range;
+
 fn main() {
     let input = fs::read_to_string("input.txt").unwrap();
 
@@ -37,17 +39,17 @@ type Position = (i32, i32);
 type Beacon = Position;
 type Sensor = Position;
 
-fn beaconless_positions(sensor: &Sensor, range: i32, line: i32) -> Vec<i32> {
+fn beaconless_positions(sensor: &Sensor, range: i32, line: i32) -> Option<Range> {
     let (x, y) = *sensor;
     let span = range - (line - y).abs();
 
     if span <= 0 {
-        return vec![];
+        return None;
     }
 
     let span = range - (line - y).abs();
 
-    (x - span..=x + span).collect()
+    Some(Range::new(x - span, x + span))
 }
 
 struct Field {
@@ -71,23 +73,38 @@ impl Field {
     }
 
     fn count_empty_positions_in_line(&self, line: i32) -> usize {
-        let mut blocked_positions = HashSet::new();
+        let mut blocked_positions = Vec::new();
 
         self.sensors.iter().for_each(|(sensor, &range)| {
-            blocked_positions.extend(beaconless_positions(sensor, range, line));
+            match beaconless_positions(sensor, range, line) {
+                Some(range) => {
+                    blocked_positions.push(range);
+                }
+                None => {}
+            };
         });
+
+        let blocked_positions = Range::join_vec(blocked_positions);
 
         // no need to add sensors; they're inside their own range
 
-        // remove known beacons, since they're known positions of beacons
-        self.beacons
+        // count the blocked positions
+        let count = blocked_positions
+            .iter()
+            .fold(0, |acc, range| acc + range.len());
+
+        let beacon_count_on_line = self
+            .beacons
             .iter()
             .filter(|beacon| beacon.1 == line)
-            .for_each(|beacon| {
-                blocked_positions.remove(&beacon.0);
-            });
+            .filter(|beacon| {
+                blocked_positions
+                    .iter()
+                    .any(|range| range.contains(beacon.0))
+            })
+            .count();
 
-        blocked_positions.len()
+        count - beacon_count_on_line
     }
 }
 
