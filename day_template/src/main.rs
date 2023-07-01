@@ -7,12 +7,12 @@ fn main() {
     println!("Result of part 2: {}", part2(&input));
 }
 
-fn part1(_input: &str) -> i32 {
-    -1
+fn part1(_input: &str) -> usize {
+    0
 }
 
-fn part2(_input: &str) -> i32 {
-    -1
+fn part2(_input: &str) -> usize {
+    0
 }
 
 #[cfg(test)]
