@@ -17,10 +17,10 @@ fn part1(input: &str) -> usize {
     field.count_sand_drops_until_abyss()
 }
 
-fn part2(input: &str) -> i32 {
-    let _field = Field::from_str(input);
+fn part2(input: &str) -> usize {
+    let mut field = Field::from_str(input);
 
-    -1
+    field.count_sand_drops_until_filled()
 }
 
 #[derive(Clone)]
@@ -39,7 +39,7 @@ fn parse_lines(input: &str) -> Vec<Vec<(usize, usize)>> {
             line.split(" -> ")
                 .map(|point| {
                     let coords: Vec<usize> = point
-                        .split(",")
+                        .split(',')
                         .map(|coord| coord.parse::<usize>().unwrap())
                         .collect();
                     (coords[0], coords[1])
@@ -56,6 +56,15 @@ struct Field {
     xmax: usize,
     ymax: usize,
 }
+
+enum DropResult {
+    Falling(usize, usize),
+    Placed(usize, usize),
+    Abyss,
+    Filled,
+}
+
+type DropFn = fn(&Field, (usize, usize)) -> DropResult;
 
 impl Field {
     const SPAWN: (usize, usize) = (500, 0);
@@ -79,7 +88,7 @@ impl Field {
             .unwrap();
 
         let mut field = Field {
-            field: vec![vec![Material::Air; ymax + 1]; xmax + 1],
+            field: vec![vec![Material::Air; ymax + 4]; xmax + (ymax + 4)],
             xmin: *xmin,
             xmax: *xmax,
             ymax: *ymax,
@@ -94,6 +103,9 @@ impl Field {
                 field.ymax
             );
         }
+
+        // draw bedrock at bottom of field
+        field.rock_line((0, ymax + 2), (field.field.len() - 1, ymax + 2));
 
         field.set_rock_lines(lines);
 
@@ -111,6 +123,12 @@ impl Field {
         x >= self.xmin && x <= self.xmax && y <= self.ymax
     }
 
+    #[cfg(test)]
+    fn is_valid_coordinate(&self, (x, y): (usize, usize)) -> bool {
+        self.field.len() > x && self.field[x].len() > y
+    }
+
+    #[cfg(test)]
     fn pretty_print(&self) -> String {
         let mut result = String::new();
         result.reserve(self.field.len() * (self.field[0].len() + 2));
@@ -190,58 +208,23 @@ impl Field {
         }
     }
 
-    fn sand_grain_step(&self, pos: (usize, usize)) -> DropResult {
-        let (current_x, current_y) = pos;
-
-        // straight down
-        let x = current_x;
-        let y = current_y + 1;
-
-        if !self.contains((x, y)) {
-            return DropResult::Abyss;
-        }
-
-        if matches!(self.field[x][y], Material::Air) {
-            return DropResult::Falling(x, y);
-        }
-
-        // left and down
-        let x = current_x - 1;
-
-        if !self.contains((x, y)) {
-            return DropResult::Abyss;
-        }
-
-        if matches!(self.field[x][y], Material::Air) {
-            return DropResult::Falling(x, y);
-        }
-
-        // right and down
-        let x = current_x + 1;
-
-        if !self.contains((x, y)) {
-            return DropResult::Abyss;
-        }
-
-        if matches!(self.field[x][y], Material::Air) {
-            return DropResult::Falling(x, y);
-        }
-
-        DropResult::Stuck(current_x, current_y)
-    }
-
-    fn drop_sand(&mut self) -> DropResult {
+    fn drop_sand(&mut self, drop_fn: DropFn) -> DropResult {
         let mut pos = Field::SPAWN;
 
+        if !matches!(self.field[pos.0][pos.1], Material::Spawn) {
+            return DropResult::Filled;
+        }
+
         loop {
-            match self.sand_grain_step(pos) {
+            match drop_fn(self, pos) {
                 DropResult::Abyss => return DropResult::Abyss,
+                DropResult::Filled => return DropResult::Filled,
                 DropResult::Falling(x, y) => {
                     pos = (x, y);
                 }
-                DropResult::Stuck(x, y) => {
+                DropResult::Placed(x, y) => {
                     self.field[x][y] = Material::Sand;
-                    return DropResult::Stuck(x, y);
+                    return DropResult::Placed(x, y);
                 }
             }
         }
@@ -251,19 +234,97 @@ impl Field {
         let mut count = 0;
 
         loop {
-            match self.drop_sand() {
+            match self.drop_sand(sand_step_part1) {
                 DropResult::Abyss => return count,
-                DropResult::Stuck(_, _) => count += 1,
+                DropResult::Placed(_, _) => count += 1,
+                _ => panic!("Unexpected result"),
+            }
+        }
+    }
+
+    fn count_sand_drops_until_filled(&mut self) -> usize {
+        let mut count = 0;
+        loop {
+            match self.drop_sand(sand_step_part2) {
+                DropResult::Filled => return count,
+                DropResult::Abyss => panic!("Abyss is impossible in part2"),
+                DropResult::Placed(_, _) => count += 1,
                 _ => panic!("Unexpected result"),
             }
         }
     }
 }
 
-enum DropResult {
-    Falling(usize, usize),
-    Stuck(usize, usize),
-    Abyss,
+fn sand_step_part1(field: &Field, pos: (usize, usize)) -> DropResult {
+    let (current_x, current_y) = pos;
+
+    // straight down
+    let x = current_x;
+    let y = current_y + 1;
+
+    if !field.contains((x, y)) {
+        return DropResult::Abyss;
+    }
+
+    if matches!(field.field[x][y], Material::Air) {
+        return DropResult::Falling(x, y);
+    }
+
+    // left and down
+    let x = current_x - 1;
+
+    if !field.contains((x, y)) {
+        return DropResult::Abyss;
+    }
+
+    if matches!(field.field[x][y], Material::Air) {
+        return DropResult::Falling(x, y);
+    }
+
+    // right and down
+    let x = current_x + 1;
+
+    if !field.contains((x, y)) {
+        return DropResult::Abyss;
+    }
+
+    if matches!(field.field[x][y], Material::Air) {
+        return DropResult::Falling(x, y);
+    }
+
+    DropResult::Placed(current_x, current_y)
+}
+
+fn sand_step_part2(field: &Field, pos: (usize, usize)) -> DropResult {
+    let (current_x, current_y) = pos;
+
+    // straight down
+    let x = current_x;
+    let y = current_y + 1;
+
+    if matches!(field.field[x][y], Material::Air) {
+        return DropResult::Falling(x, y);
+    }
+
+    // left and down
+    let x = current_x - 1;
+
+    if matches!(field.field[x][y], Material::Air) {
+        return DropResult::Falling(x, y);
+    }
+
+    // right and down
+    let x = current_x + 1;
+
+    if matches!(field.field[x][y], Material::Air) {
+        return DropResult::Falling(x, y);
+    }
+
+    if matches!(field.field[x][y], Material::Spawn) {
+        return DropResult::Filled;
+    }
+
+    DropResult::Placed(current_x, current_y)
 }
 
 #[cfg(test)]
@@ -354,43 +415,49 @@ mod tests {
         assert_eq!(field.xmax, 503);
         assert_eq!(field.ymax, 9);
 
-        assert_eq!(field.contains((field.xmin - 1, 0)), false);
-        assert_eq!(field.contains((field.xmax + 1, 0)), false);
-        assert_eq!(field.contains((field.xmin, field.ymax + 1)), false);
+        assert!(!field.contains((field.xmin - 1, 0)));
+        assert!(!field.contains((field.xmax + 1, 0)));
+        assert!(!field.contains((field.xmin, field.ymax + 1)));
 
         assert_eq!(0, ref_snapshots[0].0);
         assert_eq!(field.pretty_print(), ref_snapshots[0].1);
 
-        assert!(matches!(field.drop_sand(), DropResult::Stuck(500, 8)));
+        assert!(matches!(
+            field.drop_sand(sand_step_part1),
+            DropResult::Placed(500, 8)
+        ));
 
         assert_eq!(1, ref_snapshots[1].0);
         assert_eq!(field.pretty_print(), ref_snapshots[1].1);
 
-        field.drop_sand();
+        field.drop_sand(sand_step_part1);
         assert_eq!(2, ref_snapshots[2].0);
         assert_eq!(field.pretty_print(), ref_snapshots[2].1);
 
         for _ in 3..=5 {
-            field.drop_sand();
+            field.drop_sand(sand_step_part1);
         }
 
         assert_eq!(5, ref_snapshots[3].0);
         assert_eq!(field.pretty_print(), ref_snapshots[3].1);
 
         for _ in 6..=22 {
-            field.drop_sand();
+            field.drop_sand(sand_step_part1);
         }
 
         assert_eq!(22, ref_snapshots[4].0);
         assert_eq!(field.pretty_print(), ref_snapshots[4].1);
 
         for _ in 23..=24 {
-            field.drop_sand();
+            field.drop_sand(sand_step_part1);
         }
         assert_eq!(24, ref_snapshots[5].0);
         assert_eq!(field.pretty_print(), ref_snapshots[5].1);
 
-        assert!(matches!(field.drop_sand(), DropResult::Abyss));
+        assert!(matches!(
+            field.drop_sand(sand_step_part1),
+            DropResult::Abyss
+        ));
 
         let mut field = Field::from_str(INPUT);
 
@@ -398,7 +465,16 @@ mod tests {
     }
 
     #[test]
-    fn test_part2() {}
+    fn test_part2() {
+        let mut field = Field::from_str(INPUT);
+
+        assert!(field.is_valid_coordinate((500, field.ymax)));
+
+        assert!(matches!(field.field[500][field.ymax + 1], Material::Air));
+        assert!(matches!(field.field[500][field.ymax + 2], Material::Rock));
+
+        assert_eq!(93, field.count_sand_drops_until_filled());
+    }
 
     const INPUT: &str = "498,4 -> 498,6 -> 496,6
 503,4 -> 502,4 -> 502,9 -> 494,9";
