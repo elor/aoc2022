@@ -37,22 +37,22 @@ type Position = (i32, i32);
 type Beacon = Position;
 type Sensor = Position;
 
-fn blocked_positions_on_line(sensor: (&Sensor, &i32), line: i32) -> Vec<Position> {
-    let range = sensor.1;
-    let (x, y) = sensor.0;
+fn beaconless_positions(sensor: &Sensor, range: i32, line: i32) -> Vec<Position> {
+    let (x, y) = *sensor;
+    let span = range - (line - y).abs();
 
-    if line < y - range || line > y + range {
+    if span <= 0 {
         return vec![];
     }
 
     let mut pos: Position = (x - range - 1, line);
 
-    while manhattan_distance(pos, *sensor.0) > *range {
+    while manhattan_distance(&pos, sensor) > range {
         pos.0 += 1;
     }
 
     let mut positions = vec![];
-    while manhattan_distance(pos, *sensor.0) <= *range {
+    while manhattan_distance(&pos, sensor) <= range {
         positions.push(pos);
         pos.0 += 1;
     }
@@ -72,7 +72,7 @@ impl Field {
 
         input.trim().lines().for_each(|line| {
             let (sensor, beacon) = parse_line(line);
-            let range = manhattan_distance(sensor, beacon);
+            let range = manhattan_distance(&sensor, &beacon);
             sensors.insert(sensor, range);
             beacons.insert(beacon);
         });
@@ -83,8 +83,8 @@ impl Field {
     fn count_empty_positions_in_line(&self, line: i32) -> usize {
         let mut blocked_positions = HashSet::new();
 
-        self.sensors.iter().for_each(|sensor| {
-            blocked_positions.extend(blocked_positions_on_line(sensor, line));
+        self.sensors.iter().for_each(|(sensor, &range)| {
+            blocked_positions.extend(beaconless_positions(sensor, range, line));
         });
 
         // no need to add sensors; they're inside their own range
@@ -112,7 +112,7 @@ fn parse_line(line: &str) -> (Sensor, Beacon) {
     }
 }
 
-fn manhattan_distance(a: Position, b: Position) -> i32 {
+fn manhattan_distance(a: &Position, b: &Position) -> i32 {
     (a.0 - b.0).abs() + (a.1 - b.1).abs()
 }
 
