@@ -31,13 +31,31 @@ fn part1(input: &str) -> usize {
     field.count_empty_positions_in_line(2_000_000)
 }
 
-fn part2(_input: &str) -> usize {
-    0
+fn part2(input: &str) -> usize {
+    let field = Field::from(input);
+
+    let lost_beacon = field.find_lost_beacon(4_000_000);
+
+    lost_beacon.tuning_frequency()
 }
 
 type Position = (i32, i32);
 type Beacon = Position;
 type Sensor = Position;
+
+trait TuningFrequency {
+    fn tuning_frequency(&self) -> usize;
+}
+
+impl TuningFrequency for Beacon {
+    fn tuning_frequency(&self) -> usize {
+        let (x, y) = *self;
+
+        assert!(x >= 0 && y >= 0);
+
+        x as usize * 4000000 + y as usize
+    }
+}
 
 fn beaconless_positions(sensor: &Sensor, range: i32, line: i32) -> Option<Range> {
     let (x, y) = *sensor;
@@ -76,12 +94,9 @@ impl Field {
         let mut blocked_positions = Vec::new();
 
         self.sensors.iter().for_each(|(sensor, &range)| {
-            match beaconless_positions(sensor, range, line) {
-                Some(range) => {
-                    blocked_positions.push(range);
-                }
-                None => {}
-            };
+            if let Some(range) = beaconless_positions(sensor, range, line) {
+                blocked_positions.push(range);
+            }
         });
 
         let blocked_positions = Range::join_vec(blocked_positions);
@@ -105,6 +120,59 @@ impl Field {
             .count();
 
         count - beacon_count_on_line
+    }
+
+    fn find_unknown_beacon_in_line(&self, line: i32, limit: i32) -> Option<Beacon> {
+        let limit = Range::new(0, limit);
+        let mut blocked_positions = Vec::new();
+
+        self.sensors.iter().for_each(|(sensor, &range)| {
+            if let Some(range) = beaconless_positions(sensor, range, line) {
+                blocked_positions.push(range);
+            }
+        });
+
+        // keep sensors, keep beacons
+
+        // join blocked positions
+        let blocked_positions = Range::join_vec(blocked_positions);
+
+        match blocked_positions.len() {
+            0 => None,
+            1 => {
+                let range = blocked_positions[0];
+
+                if range.start == 1 {
+                    Some((range.end, line))
+                } else if range.end == limit.end - 1 {
+                    Some((range.start, line))
+                } else {
+                    None
+                }
+            }
+            2 => {
+                let range1 = blocked_positions[0];
+                let range2 = blocked_positions[1];
+
+                assert!(range1.start <= 0);
+                assert!(range2.end >= limit.end);
+
+                assert_eq!(range1.end + 2, range2.start);
+
+                Some((range1.end + 1, line))
+            }
+            _ => panic!("Too many potential unknown beacons, this must be wrong"),
+        }
+    }
+
+    fn find_lost_beacon(&self, limit: i32) -> Beacon {
+        let beacons: Vec<Beacon> = (0..=limit)
+            .filter_map(|line| self.find_unknown_beacon_in_line(line, limit))
+            .collect();
+
+        assert_eq!(beacons.len(), 1);
+
+        beacons[0]
     }
 }
 
@@ -145,7 +213,18 @@ mod tests {
     }
 
     #[test]
-    fn test_part2() {}
+    fn test_part2() {
+        let input = INPUT;
+        let field = Field::from(input);
+
+        assert_eq!(field.find_unknown_beacon_in_line(10, 20), None);
+        assert_eq!(field.find_unknown_beacon_in_line(11, 20), Some((14, 11)));
+
+        let lost_beacon = field.find_lost_beacon(20);
+        assert_eq!(lost_beacon, (14, 11));
+
+        assert_eq!(lost_beacon.tuning_frequency(), 56000011);
+    }
 
     const INPUT: &str = "Sensor at x=2, y=18: closest beacon is at x=-2, y=15
 Sensor at x=9, y=16: closest beacon is at x=10, y=16

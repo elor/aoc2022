@@ -3,8 +3,8 @@ pub mod day15 {
 
     #[derive(Debug, Clone, Copy, Eq, PartialEq)]
     pub struct Range {
-        start: i32,
-        end: i32,
+        pub start: i32,
+        pub end: i32,
     }
 
     impl Ord for Range {
@@ -52,6 +52,11 @@ pub mod day15 {
             let end = self.end.max(other.end);
 
             Some(Range { start, end })
+        }
+
+        pub fn clip(&mut self, limits: &Self) {
+            self.start = self.start.max(limits.start);
+            self.end = self.end.min(limits.end);
         }
 
         pub fn join_vec(ranges: Vec<Range>) -> Vec<Range> {
