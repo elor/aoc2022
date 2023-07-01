@@ -37,7 +37,7 @@ type Position = (i32, i32);
 type Beacon = Position;
 type Sensor = Position;
 
-fn beaconless_positions(sensor: &Sensor, range: i32, line: i32) -> Vec<Position> {
+fn beaconless_positions(sensor: &Sensor, range: i32, line: i32) -> Vec<i32> {
     let (x, y) = *sensor;
     let span = range - (line - y).abs();
 
@@ -45,19 +45,9 @@ fn beaconless_positions(sensor: &Sensor, range: i32, line: i32) -> Vec<Position>
         return vec![];
     }
 
-    let mut pos: Position = (x - range - 1, line);
+    let span = range - (line - y).abs();
 
-    while manhattan_distance(&pos, sensor) > range {
-        pos.0 += 1;
-    }
-
-    let mut positions = vec![];
-    while manhattan_distance(&pos, sensor) <= range {
-        positions.push(pos);
-        pos.0 += 1;
-    }
-
-    positions
+    (x - span..=x + span).collect()
 }
 
 struct Field {
@@ -90,9 +80,12 @@ impl Field {
         // no need to add sensors; they're inside their own range
 
         // remove known beacons, since they're known positions of beacons
-        for beacon in &self.beacons {
-            blocked_positions.remove(beacon);
-        }
+        self.beacons
+            .iter()
+            .filter(|beacon| beacon.1 == line)
+            .for_each(|beacon| {
+                blocked_positions.remove(&beacon.0);
+            });
 
         blocked_positions.len()
     }
