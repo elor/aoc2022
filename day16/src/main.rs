@@ -1,3 +1,4 @@
+use itertools::{Either, Itertools};
 use sscanf::sscanf;
 use std::collections::{HashMap, VecDeque};
 use std::fs;
@@ -15,8 +16,12 @@ fn part1(input: &str) -> usize {
     problem.solve_part1()
 }
 
-fn part2(_input: &str) -> usize {
-    0
+fn part2(input: &str) -> usize {
+    let problem = ProblemStatement::from_str(input);
+
+    println!("  Calculation for part 2 will take a while...");
+
+    problem.solve_part2()
 }
 
 // naming is coincidental
@@ -154,8 +159,13 @@ impl ProblemStatement {
         let mut matrix = vec![vec![usize::MAX; valves.len()]; valves.len()];
 
         // naive algorithm:
-        // For each index, find the neighbor indices, and increase the distance by 1 each time. Stop when no more indices are found. Skip indices with distance != usize::MAX
+        // For each index, find the neighbor indices, and increase the distance by 1 each time.
+        // Stop when no more indices are found. Skip indices with distance != usize::MAX
+        //
+        // I know there's better algorithms, but this is good enough for the problem at hand, and
+        // that's good enough for me
 
+        #[allow(clippy::needless_range_loop)]
         for i in 0..valves.len() {
             let mut queue: VecDeque<(usize, usize)> = VecDeque::new();
 
@@ -182,6 +192,39 @@ impl ProblemStatement {
             .filter_map(|(i, valve)| if valve.flow > 0 { Some(i) } else { None })
             .collect()
     }
+
+    fn solve_part2(&self) -> usize {
+        let time_left = 26;
+
+        let mut max_flow = 0;
+
+        let number_of_divisions = 2_usize.pow(self.closed_valves.len() as u32);
+
+        for division_index in 0..number_of_divisions {
+            let (elephant_valves, me_valves): (Vec<usize>, Vec<usize>) = self
+                .closed_valves
+                .iter()
+                .enumerate()
+                .partition_map(|(i, valve)| {
+                    if 1 << i & division_index == 0 {
+                        Either::Left(valve)
+                    } else {
+                        Either::Right(valve)
+                    }
+                });
+
+            #[cfg(test)]
+            println!("Me: {me_valves:?}\nElephant: {elephant_valves:?}\n");
+
+            let elephant_flow =
+                self.partial_solve_part1(self.starting_valve, time_left, &elephant_valves);
+            let me_flow = self.partial_solve_part1(self.starting_valve, time_left, &me_valves);
+
+            max_flow = max_flow.max(elephant_flow + me_flow);
+        }
+
+        max_flow
+    }
 }
 
 #[cfg(test)]
@@ -192,7 +235,7 @@ mod tests {
     fn test_part1() {
         let problem = ProblemStatement::from_str(INPUT);
 
-        assert_eq!(problem.valves[0], Valve::new(0, 0, vec![3, 8, 1]));
+        assert_eq!(problem.flows[0], 0);
 
         assert_eq!(problem.distances[0], [1, 2, 3, 2, 3, 4, 5, 6, 2, 3]);
         assert_eq!(problem.distances[1], [2, 1, 2, 3, 4, 5, 6, 7, 3, 4]);
@@ -212,7 +255,11 @@ mod tests {
     }
 
     #[test]
-    fn test_part2() {}
+    fn test_part2() {
+        let problem = ProblemStatement::from_str(INPUT);
+
+        assert_eq!(problem.solve_part2(), 1707);
+    }
 
     const INPUT: &str = "Valve AA has flow rate=0; tunnels lead to valves DD, II, BB
 Valve BB has flow rate=13; tunnels lead to valves CC, AA
