@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Display, Formatter},
-    fs,
-};
+use std::fs;
 
 fn main() {
     let input = fs::read_to_string("input.txt").unwrap();
@@ -11,252 +8,469 @@ fn main() {
 }
 
 fn part1(input: &str) -> usize {
-    let mut field = Field::new();
-    let binding = parse_sequence(input);
-    let mut sequence = binding.iter().cycle();
+    let mut field = Field::new(input);
 
-    SHAPES.iter().cycle().take(2022).for_each(|shape| {
-        field.drop_one_piece(shape, &mut sequence);
-    });
+    field.continue_until_rocks_locked(2022);
 
-    field.highest_row - 1
+    field.number_of_filled_rows()
 }
 
 fn part2(_input: &str) -> usize {
     0
 }
 
-const WIDTH: usize = 7;
-const MAX_HEIGHT: usize = 2022 * 4;
-
-struct Field {
-    field: [[bool; WIDTH]; MAX_HEIGHT],
-    highest_row: usize,
-    current_piece: Option<Piece>,
+#[derive(Debug, PartialEq, Copy, Clone)]
+enum Action {
+    Creation,
+    Rock,
+    Drop,
+    Move(Direction),
+    Lock,
 }
 
-impl Display for Field {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let max_height = if let Some(piece) = &self.current_piece {
-            piece.position.1 + piece.shape.len()
-        } else {
-            self.highest_row
-        };
-
-        if max_height > 0 {
-            for row in (0..max_height).rev() {
-                write!(f, "|")?;
-                for cell in self.field[row].iter() {
-                    write!(f, "{}", if *cell { "#" } else { "." })?;
-                }
-                writeln!(f, "|")?;
-            }
-        }
-
-        write!(f, "+-------+")?;
-
-        Ok(())
-    }
-}
-
-enum DropResult {
-    Landed,
-    Falling,
-}
-
-impl Field {
-    fn new() -> Field {
-        Field {
-            field: [[false; 7]; MAX_HEIGHT],
-            highest_row: 0,
-            current_piece: None,
-        }
-    }
-
-    fn add_piece(&mut self, shape: &'static Shape) {
-        let width = shape
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .enumerate()
-                    .filter_map(|(i, cell)| if *cell { Some(i) } else { None })
-                    .max()
-                    .unwrap_or(0)
-                    + 1
-            })
-            .max()
-            .unwrap();
-
-        let piece = Piece {
-            shape,
-            position: (2, self.highest_row + 3),
-            width,
-        };
-        self.current_piece = Some(piece);
-    }
-
-    fn anchor_piece(&mut self) {
-        if let Some(piece) = &self.current_piece {
-            for (i, row) in piece.shape.iter().enumerate() {
-                let i = piece.shape.len() - i - 1;
-                for (j, cell) in row.iter().enumerate() {
-                    if *cell {
-                        let x = piece.position.0 + j;
-                        let y = piece.position.1 + i;
-                        self.highest_row = self.highest_row.max(y + 1);
-
-                        self.field[y][x] = true;
-                    }
-                }
-            }
-
-            self.current_piece = None;
-        }
-    }
-
-    fn move_piece(&mut self, direction: &Direction) {
-        match &mut self.current_piece {
-            Some(piece) => match direction {
-                Direction::Left => {
-                    if piece.position.0 > 0 {
-                        piece.position.0 -= 1;
-                    }
-                }
-                Direction::Right => {
-                    if piece.position.0 + piece.width < WIDTH {
-                        piece.position.0 += 1;
-                    }
-                }
-            },
-            None => {}
-        }
-
-        if self.collides() {
-            if let Some(piece) = &mut self.current_piece {
-                match direction {
-                    Direction::Left => {
-                        if piece.position.0 > 0 {
-                            piece.position.0 += 1;
-                        }
-                    }
-                    Direction::Right => {
-                        if piece.position.0 + piece.width < WIDTH {
-                            piece.position.0 -= 1;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    fn drop(&mut self) -> DropResult {
-        if let Some(piece) = &mut self.current_piece {
-            if piece.position.1 == 0 {
-                self.anchor_piece();
-                return DropResult::Landed;
-            }
-            piece.position.1 -= 1;
-        }
-
-        if self.collides() {
-            if let Some(piece) = &mut self.current_piece {
-                piece.position.1 += 1;
-                self.anchor_piece();
-                return DropResult::Landed;
-            }
-        }
-
-        DropResult::Falling
-    }
-
-    fn collides(&self) -> bool {
-        let piece = self.current_piece.as_ref().unwrap();
-        for (i, row) in piece.shape.iter().enumerate() {
-            let i = piece.shape.len() - i - 1;
-            for (j, cell) in row.iter().enumerate() {
-                if *cell && self.field[piece.position.1 + i][piece.position.0 + j] {
-                    return true;
-                }
-            }
-        }
-
-        false
-    }
-
-    fn has_piece(&self) -> bool {
-        self.current_piece.is_some()
-    }
-
-    fn drop_one_piece(
-        &mut self,
-        shape: &'static Shape,
-        sequence: &mut dyn Iterator<Item = &Direction>,
-    ) {
-        self.add_piece(shape);
-
-        while self.has_piece() {
-            self.move_piece(sequence.next().unwrap());
-            self.drop();
-        }
-    }
-}
-
-type Shape = [[bool; 4]; 4];
-
-struct Piece {
-    shape: &'static Shape,
-    width: usize,
-    position: (usize, usize), // offset relative to bottom left corner
-}
-
+#[derive(Debug, PartialEq, Copy, Clone)]
 enum Direction {
     Left,
     Right,
 }
 
-fn parse_sequence(input: &str) -> Vec<Direction> {
-    input
-        .trim()
-        .bytes()
-        .map(|b| match b {
-            b'<' => Direction::Left,
-            b'>' => Direction::Right,
-            _ => panic!("Invalid direction"),
-        })
-        .collect()
+type Rock = [u8; 4];
+
+fn rock_height(rock: &Rock) -> usize {
+    for (i, row) in rock.iter().enumerate().rev() {
+        if *row != 0 {
+            return i + 1;
+        }
+    }
+
+    0
 }
 
-const SHAPES: [Shape; 5] = [
+const ROCKS: [Rock; 5] = [
+    //
     [
-        [false, false, false, false],
-        [false, false, false, false],
-        [false, false, false, false],
-        [true, true, true, true],
+        0b0011110, // ####
+        0b0000000, // ....
+        0b0000000, // ....
+        0b0000000, // ....
     ],
     [
-        [false, false, false, false],
-        [false, true, false, false],
-        [true, true, true, false],
-        [false, true, false, false],
+        0b0001000, // .#..
+        0b0011100, // ###.
+        0b0001000, // .#..
+        0b0000000, // ....
     ],
     [
-        [false, false, false, false],
-        [false, false, true, false],
-        [false, false, true, false],
-        [true, true, true, false],
+        0b0011100, // ###.
+        0b0000100, // ..#.
+        0b0000100, // ..#.
+        0b0000000, // ....
     ],
     [
-        [true, false, false, false],
-        [true, false, false, false],
-        [true, false, false, false],
-        [true, false, false, false],
+        0b0010000, // #...
+        0b0010000, // #...
+        0b0010000, // #...
+        0b0010000, // #...
     ],
     [
-        [false, false, false, false],
-        [false, false, false, false],
-        [true, true, false, false],
-        [true, true, false, false],
-    ],
+        0b0011000, // ##..
+        0b0011000, // ##..
+        0b0000000, // ....
+        0b0000000, // ....
+    ], //
+];
+
+use std::iter::{Copied, Cycle, Iterator};
+
+type RockCycle = Cycle<Copied<std::slice::Iter<'static, Rock>>>;
+
+fn rock_cycle() -> RockCycle {
+    ROCKS.iter().copied().cycle()
+}
+
+struct MoveCycle {
+    data: Vec<Direction>,
+    current: usize,
+}
+
+impl MoveCycle {
+    fn new(input: &str) -> Self {
+        Self {
+            data: input
+                .trim()
+                .chars()
+                .map(|c| match c {
+                    '<' => Direction::Left,
+                    '>' => Direction::Right,
+                    _ => panic!("Invalid input character: {c}"),
+                })
+                .collect(),
+            current: 0,
+        }
+    }
+
+    fn next(&mut self) -> Direction {
+        let result = self.data[self.current];
+        self.current = (self.current + 1) % self.data.len();
+        result
+    }
+}
+
+const MAX_SIZE: usize = 4096;
+
+enum DropResult {
+    Ground,
+    Rock,
+    Dropped,
+}
+
+struct Field {
+    data: [u8; MAX_SIZE],
+    current_rock: Option<Rock>,
+    rocks: RockCycle,
+    moves: MoveCycle,
+    rock_position: (isize, usize),
+    last_action: Action,
+    rocks_locked: usize,
+}
+
+impl Field {
+    fn new(input: &str) -> Self {
+        Self {
+            data: [0; MAX_SIZE],
+            current_rock: None,
+
+            // x,y offset:
+            // x - distance to the left border
+            // y - distance to the bottom
+            rock_position: (0, 0),
+            last_action: Action::Creation,
+            rocks: rock_cycle(),
+            moves: MoveCycle::new(input),
+            rocks_locked: 0,
+        }
+    }
+
+    fn next_rock(&mut self) {
+        let rock = self.rocks.next().unwrap();
+
+        let x = 0; // offset of 2 is already included in ROCK
+        let y = self.number_of_filled_rows() + 3;
+
+        self.current_rock = Some(rock);
+        self.rock_position = (x, y);
+
+        self.last_action = Action::Rock;
+    }
+
+    fn lock_rock(&mut self) {
+        if let Some(rock) = self.current_rock {
+            let (x, y) = self.rock_position;
+            for (i, rock_row) in rock.iter().enumerate() {
+                let row = y + i;
+                self.data[row] |= shift(rock_row, x);
+            }
+            self.current_rock = None;
+            self.rocks_locked += 1;
+            self.last_action = Action::Lock;
+        }
+    }
+
+    fn number_of_filled_rows(&self) -> usize {
+        let rock_row = if let Some(rock) = self.current_rock {
+            self.rock_position.1 + rock_height(&rock)
+        } else {
+            0
+        };
+        for row in (rock_row..MAX_SIZE).rev() {
+            if self.data[row] != 0 {
+                return row + 1;
+            }
+        }
+        rock_row
+    }
+
+    fn fall_once(&mut self) -> DropResult {
+        if self.rock_position.1 == 0 {
+            self.lock_rock();
+            return DropResult::Ground;
+        }
+
+        self.rock_position.1 -= 1;
+
+        if self.collides() {
+            self.rock_position.1 += 1;
+            self.lock_rock();
+            return DropResult::Rock;
+        }
+
+        self.last_action = Action::Drop;
+        DropResult::Dropped
+    }
+
+    fn collides(&self) -> bool {
+        if let Some(rock) = self.current_rock {
+            let (x, y) = self.rock_position;
+
+            (0..4).any(|i| {
+                let row = y + i;
+                self.data[row] & shift(&rock[i], x) != 0
+            })
+        } else {
+            false
+        }
+    }
+
+    fn one_action(&mut self) -> Action {
+        // order:
+        // 0. Creation - None --> New
+        // 1. insert rock - New, Lock --> Rock
+        // 2. Move rock - Rock, Drop --> Move
+        // 3. Drop rock - Move --> Drop, Lock
+        match self.last_action {
+            Action::Creation => {
+                self.next_rock();
+            }
+            Action::Rock => {
+                self.next_move();
+            }
+            Action::Move(_) => {
+                self.fall_once();
+            }
+            Action::Drop => {
+                self.next_move();
+            }
+            Action::Lock => {
+                self.next_rock();
+            }
+        }
+
+        self.last_action
+    }
+
+    fn move_left(&mut self) {
+        self.last_action = Action::Move(Direction::Left);
+
+        if let Some(rock) = self.current_rock {
+            if rock
+                .iter()
+                .any(|row| shift(row, self.rock_position.0) & 0b1000000 != 0)
+            {
+                return;
+            }
+        }
+
+        self.rock_position.0 -= 1;
+        if self.collides() {
+            self.rock_position.0 += 1;
+        }
+    }
+
+    fn move_right(&mut self) {
+        self.last_action = Action::Move(Direction::Right);
+
+        if let Some(rock) = self.current_rock {
+            if rock
+                .iter()
+                .any(|row| shift(row, self.rock_position.0) & 0b1 != 0)
+            {
+                return;
+            }
+        }
+
+        self.rock_position.0 += 1;
+        if self.collides() {
+            self.rock_position.0 -= 1;
+        }
+    }
+
+    fn next_move(&mut self) {
+        match self.moves.next() {
+            Direction::Left => self.move_left(),
+            Direction::Right => self.move_right(),
+        }
+    }
+
+    fn continue_until_rocks_locked(&mut self, rock_limit: usize) {
+        while self.rocks_locked < rock_limit {
+            self.one_action();
+        }
+    }
+}
+
+fn shift(rock_row: &u8, x: isize) -> u8 {
+    if x < 0 {
+        rock_row << -x
+    } else {
+        rock_row >> x
+    }
+}
+
+impl std::fmt::Display for Field {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let rock_upper_y = self.rock_position.1 + 3;
+        let rock_lower_y = self.rock_position.1;
+
+        for (row_number, row_state) in self
+            .data
+            .iter()
+            .enumerate()
+            .take(self.number_of_filled_rows())
+            .rev()
+        {
+            let row_str = ROW_LOOKUP[*row_state as usize];
+            if self.current_rock.is_some()
+                && row_number >= rock_lower_y
+                && row_number <= rock_upper_y
+            {
+                let row_str = row_str.to_string();
+                let rock_row = self.current_rock.unwrap()[row_number - rock_lower_y];
+                let rock_row = shift(&rock_row, self.rock_position.0);
+                let rock_str = ROW_LOOKUP[rock_row as usize];
+
+                // zip row and rock, and display '@' when rock_str is a '#'
+                for (row_c, rock_c) in row_str.chars().zip(rock_str.chars()) {
+                    write!(f, "{}", if rock_c == '#' { '@' } else { row_c })?;
+                }
+
+                writeln!(f)?;
+            } else {
+                writeln!(f, "{}", row_str)?;
+            }
+        }
+        write!(f, "+-------+")
+    }
+}
+
+const ROW_LOOKUP: [&str; 1 << 7] = [
+    "|.......|", //
+    "|......#|", //
+    "|.....#.|", //
+    "|.....##|", //
+    "|....#..|", //
+    "|....#.#|", //
+    "|....##.|", //
+    "|....###|", //
+    "|...#...|", //
+    "|...#..#|", //
+    "|...#.#.|", //
+    "|...#.##|", //
+    "|...##..|", //
+    "|...##.#|", //
+    "|...###.|", //
+    "|...####|", //
+    "|..#....|", //
+    "|..#...#|", //
+    "|..#..#.|", //
+    "|..#..##|", //
+    "|..#.#..|", //
+    "|..#.#.#|", //
+    "|..#.##.|", //
+    "|..#.###|", //
+    "|..##...|", //
+    "|..##..#|", //
+    "|..##.#.|", //
+    "|..##.##|", //
+    "|..###..|", //
+    "|..###.#|", //
+    "|..####.|", //
+    "|..#####|", //
+    "|.#.....|", //
+    "|.#....#|", //
+    "|.#...#.|", //
+    "|.#...##|", //
+    "|.#..#..|", //
+    "|.#..#.#|", //
+    "|.#..##.|", //
+    "|.#..###|", //
+    "|.#.#...|", //
+    "|.#.#..#|", //
+    "|.#.#.#.|", //
+    "|.#.#.##|", //
+    "|.#.##..|", //
+    "|.#.##.#|", //
+    "|.#.###.|", //
+    "|.#.####|", //
+    "|.##....|", //
+    "|.##...#|", //
+    "|.##..#.|", //
+    "|.##..##|", //
+    "|.##.#..|", //
+    "|.##.#.#|", //
+    "|.##.##.|", //
+    "|.##.###|", //
+    "|.###...|", //
+    "|.###..#|", //
+    "|.###.#.|", //
+    "|.###.##|", //
+    "|.####..|", //
+    "|.####.#|", //
+    "|.#####.|", //
+    "|.######|", //
+    "|#......|", //
+    "|#.....#|", //
+    "|#....#.|", //
+    "|#....##|", //
+    "|#...#..|", //
+    "|#...#.#|", //
+    "|#...##.|", //
+    "|#...###|", //
+    "|#..#...|", //
+    "|#..#..#|", //
+    "|#..#.#.|", //
+    "|#..#.##|", //
+    "|#..##..|", //
+    "|#..##.#|", //
+    "|#..###.|", //
+    "|#..####|", //
+    "|#.#....|", //
+    "|#.#...#|", //
+    "|#.#..#.|", //
+    "|#.#..##|", //
+    "|#.#.#..|", //
+    "|#.#.#.#|", //
+    "|#.#.##.|", //
+    "|#.#.###|", //
+    "|#.##...|", //
+    "|#.##..#|", //
+    "|#.##.#.|", //
+    "|#.##.##|", //
+    "|#.###..|", //
+    "|#.###.#|", //
+    "|#.####.|", //
+    "|#.#####|", //
+    "|##.....|", //
+    "|##....#|", //
+    "|##...#.|", //
+    "|##...##|", //
+    "|##..#..|", //
+    "|##..#.#|", //
+    "|##..##.|", //
+    "|##..###|", //
+    "|##.#...|", //
+    "|##.#..#|", //
+    "|##.#.#.|", //
+    "|##.#.##|", //
+    "|##.##..|", //
+    "|##.##.#|", //
+    "|##.###.|", //
+    "|##.####|", //
+    "|###....|", //
+    "|###...#|", //
+    "|###..#.|", //
+    "|###..##|", //
+    "|###.#..|", //
+    "|###.#.#|", //
+    "|###.##.|", //
+    "|###.###|", //
+    "|####...|", //
+    "|####..#|", //
+    "|####.#.|", //
+    "|####.##|", //
+    "|#####..|", //
+    "|#####.#|", //
+    "|######.|", //
+    "|#######|", //
 ];
 
 #[cfg(test)]
@@ -265,141 +479,136 @@ mod tests {
 
     #[test]
     fn test_part1() {
-        let input = fs::read_to_string("test.txt").unwrap();
-        let binding = parse_sequence(&input);
-        let mut sequence = binding.iter().cycle();
+        let input = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>";
+        let mut cycle = MoveCycle::new(input);
 
-        let mut field = Field::new();
+        assert_eq!(cycle.next(), Direction::Right);
+        assert_eq!(cycle.next(), Direction::Right);
+        assert_eq!(cycle.next(), Direction::Right);
+        assert_eq!(cycle.next(), Direction::Left);
+        assert_eq!(cycle.next(), Direction::Left);
 
-        assert_eq!(field.to_string(), "+-------+");
+        for _ in 5..input.len() {
+            cycle.next();
+        }
 
-        let mut shapecycle = SHAPES.iter().cycle();
+        assert_eq!(cycle.next(), Direction::Right);
+        assert_eq!(cycle.next(), Direction::Right);
+        assert_eq!(cycle.next(), Direction::Right);
+        assert_eq!(cycle.next(), Direction::Left);
+        assert_eq!(cycle.next(), Direction::Left);
 
-        field.drop_one_piece(shapecycle.next().unwrap(), &mut sequence);
-        assert_eq!(field.to_string(), "|..####.|\n+-------+");
-        assert_eq!(field.highest_row, 1);
+        let mut field = Field::new(input);
 
-        field.drop_one_piece(shapecycle.next().unwrap(), &mut sequence);
         assert_eq!(
             field.to_string(),
             "\
-|...#...|
-|..###..|
-|...#...|
++-------+"
+        );
+
+        assert_eq!(field.one_action(), Action::Rock);
+
+        assert_eq!(
+            field.to_string(),
+            "\
+|..@@@@.|
+|.......|
+|.......|
+|.......|
++-------+"
+        );
+
+        assert_eq!(field.one_action(), Action::Move(Direction::Right));
+        assert_eq!(
+            field.to_string(),
+            "\
+|...@@@@|
+|.......|
+|.......|
+|.......|
++-------+"
+        );
+
+        assert_eq!(field.one_action(), Action::Drop);
+        assert_eq!(
+            field.to_string(),
+            "\
+|...@@@@|
+|.......|
+|.......|
++-------+"
+        );
+
+        assert_eq!(field.one_action(), Action::Move(Direction::Right));
+        assert_eq!(
+            field.to_string(),
+            "\
+|...@@@@|
+|.......|
+|.......|
++-------+"
+        );
+
+        assert_eq!(field.one_action(), Action::Drop);
+        assert_eq!(
+            field.to_string(),
+            "\
+|...@@@@|
+|.......|
++-------+"
+        );
+
+        assert_eq!(field.one_action(), Action::Move(Direction::Right));
+        assert_eq!(
+            field.to_string(),
+            "\
+|...@@@@|
+|.......|
++-------+"
+        );
+
+        assert_eq!(field.one_action(), Action::Drop);
+        assert_eq!(
+            field.to_string(),
+            "\
+|...@@@@|
++-------+"
+        );
+
+        assert_eq!(field.one_action(), Action::Move(Direction::Left));
+        assert_eq!(
+            field.to_string(),
+            "\
+|..@@@@.|
++-------+"
+        );
+
+        assert_eq!(field.one_action(), Action::Lock);
+        assert_ne!(field.data[0], 0);
+        assert_eq!(field.number_of_filled_rows(), 1);
+        assert_eq!(
+            field.to_string(),
+            "\
 |..####.|
 +-------+"
         );
 
-        field.drop_one_piece(shapecycle.next().unwrap(), &mut sequence);
+        assert_eq!(field.one_action(), Action::Rock);
         assert_eq!(
             field.to_string(),
             "\
-|..#....|
-|..#....|
-|####...|
-|..###..|
-|...#...|
+|...@...|
+|..@@@..|
+|...@...|
+|.......|
+|.......|
+|.......|
 |..####.|
 +-------+"
         );
 
-        field.drop_one_piece(shapecycle.next().unwrap(), &mut sequence);
-        assert_eq!(
-            field.to_string(),
-            "\
-|....#..|
-|..#.#..|
-|..#.#..|
-|#####..|
-|..###..|
-|...#...|
-|..####.|
-+-------+"
-        );
-
-        field.drop_one_piece(shapecycle.next().unwrap(), &mut sequence);
-        assert_eq!(
-            field.to_string(),
-            "\
-|....##.|
-|....##.|
-|....#..|
-|..#.#..|
-|..#.#..|
-|#####..|
-|..###..|
-|...#...|
-|..####.|
-+-------+"
-        );
-
-        field.drop_one_piece(shapecycle.next().unwrap(), &mut sequence);
-        assert_eq!(
-            field.to_string(),
-            "\
-|.####..|
-|....##.|
-|....##.|
-|....#..|
-|..#.#..|
-|..#.#..|
-|#####..|
-|..###..|
-|...#...|
-|..####.|
-+-------+"
-        );
-
-        field.drop_one_piece(shapecycle.next().unwrap(), &mut sequence);
-        assert_eq!(
-            field.to_string(),
-            "\
-|..#....|
-|.###...|
-|..#....|
-|.####..|
-|....##.|
-|....##.|
-|....#..|
-|..#.#..|
-|..#.#..|
-|#####..|
-|..###..|
-|...#...|
-|..####.|
-+-------+"
-        );
-
-        field.drop_one_piece(shapecycle.next().unwrap(), &mut sequence);
-        assert_eq!(
-            field.to_string(),
-            "\
-|.....#.|
-|.....#.|
-|..####.|
-|.###...|
-|..#....|
-|.####..|
-|....##.|
-|....##.|
-|....#..|
-|..#.#..|
-|..#.#..|
-|#####..|
-|..###..|
-|...#...|
-|..####.|
-+-------+"
-        );
-
-        let mut field = Field::new();
-        let mut sequence = binding.iter().cycle();
-
-        SHAPES.iter().cycle().take(2022).for_each(|shape| {
-            field.drop_one_piece(shape, &mut sequence);
-        });
-
-        assert_eq!(field.highest_row, 3068);
+        field.continue_until_rocks_locked(2022);
+        assert_eq!(field.number_of_filled_rows(), 3068)
     }
 
     #[test]
