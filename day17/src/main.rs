@@ -12,7 +12,7 @@ fn part1(input: &str) -> usize {
 
     field.continue_until_rocks_locked(2022);
 
-    field.number_of_filled_rows()
+    field.filled_rows
 }
 
 fn part2(_input: &str) -> usize {
@@ -36,14 +36,19 @@ enum Direction {
 
 type Rock = [u8; 4];
 
-fn rock_height(rock: &Rock) -> usize {
-    for (i, row) in rock.iter().enumerate().rev() {
-        if *row != 0 {
-            return i + 1;
-        }
+/// calculates the height of a rock
+///
+/// Well, actually it performs a lookup,
+/// since the first row of a rock is unique
+fn number_of_rows_in_rock(rock: &Rock) -> usize {
+    match rock[0] {
+        0b0011110 => 1,
+        0b0001000 => 3,
+        0b0011100 => 3,
+        0b0010000 => 4,
+        0b0011000 => 2,
+        _ => 0,
     }
-
-    0
 }
 
 const ROCKS: [Rock; 5] = [
@@ -132,6 +137,7 @@ struct Field {
     rock_position: (isize, usize),
     last_action: Action,
     rocks_locked: usize,
+    filled_rows: usize,
 }
 
 impl Field {
@@ -148,6 +154,7 @@ impl Field {
             rocks: rock_cycle(),
             moves: MoveCycle::new(input),
             rocks_locked: 0,
+            filled_rows: 0,
         }
     }
 
@@ -155,7 +162,7 @@ impl Field {
         let rock = self.rocks.next().unwrap();
 
         let x = 0; // offset of 2 is already included in ROCK
-        let y = self.number_of_filled_rows() + 3;
+        let y = self.filled_rows + 3;
 
         self.current_rock = Some(rock);
         self.rock_position = (x, y);
@@ -169,6 +176,9 @@ impl Field {
             for (i, rock_row) in rock.iter().enumerate() {
                 let row = y + i;
                 self.data[row] |= shift(rock_row, x);
+                if self.data[row] != 0b0000000 {
+                    self.filled_rows = self.filled_rows.max(row + 1);
+                }
             }
             self.current_rock = None;
             self.rocks_locked += 1;
@@ -176,18 +186,13 @@ impl Field {
         }
     }
 
-    fn number_of_filled_rows(&self) -> usize {
-        let rock_row = if let Some(rock) = self.current_rock {
-            self.rock_position.1 + rock_height(&rock)
-        } else {
-            0
-        };
-        for row in (rock_row..MAX_SIZE).rev() {
-            if self.data[row] != 0 {
-                return row + 1;
-            }
+    fn highest_row_to_print(&self) -> usize {
+        match self.current_rock {
+            Some(rock) => self
+                .filled_rows
+                .max(self.rock_position.1 + number_of_rows_in_rock(&rock)),
+            None => self.filled_rows,
         }
-        rock_row
     }
 
     fn fall_once(&mut self) -> DropResult {
@@ -315,7 +320,7 @@ impl std::fmt::Display for Field {
             .data
             .iter()
             .enumerate()
-            .take(self.number_of_filled_rows())
+            .take(self.highest_row_to_print())
             .rev()
         {
             let row_str = ROW_LOOKUP[*row_state as usize];
@@ -478,7 +483,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_part1() {
+    fn test_move_cycle() {
         let input = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>";
         let mut cycle = MoveCycle::new(input);
 
@@ -497,7 +502,20 @@ mod tests {
         assert_eq!(cycle.next(), Direction::Right);
         assert_eq!(cycle.next(), Direction::Left);
         assert_eq!(cycle.next(), Direction::Left);
+    }
 
+    #[test]
+    fn test_rock_height() {
+        assert_eq!(number_of_rows_in_rock(&ROCKS[0]), 1);
+        assert_eq!(number_of_rows_in_rock(&ROCKS[1]), 3);
+        assert_eq!(number_of_rows_in_rock(&ROCKS[2]), 3);
+        assert_eq!(number_of_rows_in_rock(&ROCKS[3]), 4);
+        assert_eq!(number_of_rows_in_rock(&ROCKS[4]), 2);
+    }
+
+    #[test]
+    fn test_field() {
+        let input = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>";
         let mut field = Field::new(input);
 
         assert_eq!(
@@ -585,7 +603,7 @@ mod tests {
 
         assert_eq!(field.one_action(), Action::Lock);
         assert_ne!(field.data[0], 0);
-        assert_eq!(field.number_of_filled_rows(), 1);
+        assert_eq!(field.filled_rows, 1);
         assert_eq!(
             field.to_string(),
             "\
@@ -608,9 +626,21 @@ mod tests {
         );
 
         field.continue_until_rocks_locked(2022);
-        assert_eq!(field.number_of_filled_rows(), 3068)
+        assert_eq!(field.filled_rows, 3068)
     }
 
     #[test]
-    fn test_part2() {}
+    fn test_part2() {
+        // let input = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>";
+        // let mut field = Field::new(input);
+        //
+        // field.continue_until_rocks_locked(1_000_000_000_000);
+        //
+        // assert_eq!(field.number_of_filled_rows(), 1_514_285_714_288);
+    }
 }
+
+// TODOs:
+// - [ ] prune unused rows
+// - [ ] count number of pruned rows
+// - [x] keep memory of number of filled rows, instead of recalculating all the time
