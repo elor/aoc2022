@@ -4,4 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+circular-buffer = "0.1.2"
+pretty_assertions = "1.4.0"
+separator = "0.4.1"
 
