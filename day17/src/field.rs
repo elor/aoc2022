@@ -180,8 +180,8 @@ impl Field {
         self.fall();
     }
 
-    pub fn step_until(&mut self, rocks_locked: usize) {
-        while self.rocks_locked < rocks_locked {
+    pub fn step_until(&mut self, rocks_locked_target: usize) {
+        while self.rocks_locked < rocks_locked_target {
             self.one_step();
         }
     }
@@ -250,8 +250,6 @@ impl Field {
                 });
             }
             seen.insert(hash, self.moves_performed);
-            // println!("hash: {hash:016x} at move {}\r", self.moves_performed);
-            // println!("   counters: {:?}", self.column_counter);
         }
 
         return None;
@@ -386,9 +384,7 @@ mod tests {
 +-------+"
         );
 
-        while field.rocks_locked < 2 {
-            field.one_step();
-        }
+        field.step_until(2);
         assert_eq!(
             field.to_string(),
             "\
@@ -405,9 +401,7 @@ mod tests {
 +-------+"
         );
 
-        while field.rocks_locked < 2022 {
-            field.one_step();
-        }
+        field.step_until(2022);
         assert_eq!(field.stack_height(), 3068)
     }
 

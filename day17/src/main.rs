@@ -19,13 +19,15 @@ fn main() {
 fn part1(input: &str) -> usize {
     let mut field = Field::new(input);
 
-    while field.rocks_locked < 2022 {
-        field.one_step();
-    }
+    field.step_until(2022);
 
     field.stack_height()
 }
 
-fn part2(_input: &str) -> usize {
-    0
+fn part2(input: &str) -> usize {
+    let mut field = Field::new(input);
+
+    field.longstep_until(1_000_000_000_000);
+
+    field.stack_height()
 }
