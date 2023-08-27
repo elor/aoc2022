@@ -488,4 +488,14 @@ mod tests {
 
         assert_eq!(field.stack_height(), 1_514_285_714_288);
     }
+
+    #[test]
+    fn regression_test_part1_result() {
+        let input = include_str!("../input.txt");
+        let mut field = Field::new(input);
+
+        field.step_until(2022);
+
+        assert_eq!(field.stack_height(), 3177);
+    }
 }

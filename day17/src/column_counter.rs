@@ -29,7 +29,7 @@ impl ColumnCounterFn for ColumnCounter {
     }
 
     fn is_full(&self) -> bool {
-        self.iter().all(|&c| c != 0)
+        self.iter().all(|&c| c > 1)
     }
 }
 
@@ -40,6 +40,10 @@ mod tests {
     #[test]
     fn test_column_counter() {
         let mut counter = ColumnCounter::new();
+
+        assert!(!counter.is_full());
+
+        counter.add(0b111_1111);
 
         assert!(!counter.is_full());
 
