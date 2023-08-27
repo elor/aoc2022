@@ -1,8 +1,13 @@
 use crate::actions::*;
 
+use crate::column_counter::{ColumnCounter, ColumnCounterFn};
 use crate::rocks::*;
 use crate::row_lookup::ROW_LOOKUP;
 use circular_buffer::CircularBuffer;
+
+use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 // const MAX_SIZE: usize = 1_000_000;
 const MAX_SIZE: usize = 4096;
@@ -15,7 +20,15 @@ pub struct Field {
     is_rock_fresh: bool,
     rock_position: (isize, usize),
     pub rocks_locked: usize,
+    pub moves_performed: usize,
     pruned_rows: usize,
+    column_counter: ColumnCounter,
+}
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub struct Cycle {
+    start: usize,
+    period: usize,
 }
 
 impl Field {
@@ -37,6 +50,8 @@ impl Field {
 
             rocks_locked: 0,
             pruned_rows: 0,
+            column_counter: ColumnCounter::new(),
+            moves_performed: 0,
         }
     }
 
@@ -60,6 +75,7 @@ impl Field {
 
     fn get_row_mut(&mut self, row: usize) -> &mut u8 {
         while row >= self.data.len() {
+            assert!(!self.data.is_full());
             self.data.push_back(0);
         }
         self.data.get_mut(row).unwrap()
@@ -69,10 +85,22 @@ impl Field {
         let (x, y) = self.rock_position;
         for i in 0..number_of_rows_in_rock(&self.rock) {
             let row = y + i;
-            *self.get_row_mut(row) |= shift(&self.rock[i], x);
+            let shifted_rock_row = shift(self.rock[i], x);
+            self.column_counter.add(shifted_rock_row);
+            *self.get_row_mut(row) |= shifted_rock_row;
         }
         self.rocks_locked += 1;
         self.new_rock();
+        self.prune();
+    }
+
+    fn prune(&mut self) {
+        while self.column_counter.is_full() {
+            let popped_row = self.data.pop_front().unwrap();
+            self.column_counter.remove(popped_row);
+            self.pruned_rows += 1;
+            self.rock_position.1 -= 1;
+        }
     }
 
     fn highest_row_to_print(&self) -> usize {
@@ -103,9 +131,9 @@ impl Field {
     fn collides(&self) -> bool {
         let (x, y) = self.rock_position;
 
-        (0..4).any(|i| {
+        (0..4).any(|i| -> bool {
             let row = y + i;
-            self.get_row(row) & shift(&self.rock[i], x) != 0
+            self.get_row(row) & shift(self.rock[i], x) != 0
         })
     }
 
@@ -113,7 +141,7 @@ impl Field {
         if self
             .rock
             .iter()
-            .any(|row| shift(row, self.rock_position.0) & 0b1000000 != 0)
+            .any(|row| shift(*row, self.rock_position.0) & 0b1000000 != 0)
         {
             return;
         }
@@ -128,7 +156,7 @@ impl Field {
         if self
             .rock
             .iter()
-            .any(|row| shift(row, self.rock_position.0) & 0b1 != 0)
+            .any(|row| shift(*row, self.rock_position.0) & 0b1 != 0)
         {
             return;
         }
@@ -140,6 +168,7 @@ impl Field {
     }
 
     fn next_move(&mut self) {
+        self.moves_performed += 1;
         match self.move_cycle.next() {
             Direction::Left => self.move_left(),
             Direction::Right => self.move_right(),
@@ -150,9 +179,92 @@ impl Field {
         self.next_move();
         self.fall();
     }
+
+    pub fn step_until(&mut self, rocks_locked: usize) {
+        while self.rocks_locked < rocks_locked {
+            self.one_step();
+        }
+    }
+
+    pub fn longstep_until(&mut self, rocks_locked_target: usize) {
+        let timeout_steps = self.move_cycle.len() * self.rock_cycle.len() * 5;
+        if let Some(cycle) = self.find_cycle(timeout_steps) {
+            let old_rocks_locked = self.rocks_locked;
+            let old_pruned_rows = self.pruned_rows;
+            let supercycle_length = cycle.period;
+
+            for _ in 0..supercycle_length {
+                self.one_step();
+            }
+            let rocks_locked = self.rocks_locked;
+            let pruned_rows = self.pruned_rows;
+
+            let rocks_locked_diff = rocks_locked - old_rocks_locked;
+            let pruned_rows_diff = pruned_rows - old_pruned_rows;
+            let moves_diff = supercycle_length;
+
+            // accelerate
+
+            let rocks_left = rocks_locked_target - self.rocks_locked;
+            let supercycles_left = rocks_left / rocks_locked_diff;
+
+            self.rocks_locked += rocks_locked_diff * supercycles_left;
+            self.pruned_rows += pruned_rows_diff * supercycles_left;
+            self.moves_performed += moves_diff * supercycles_left;
+
+            assert!(self.rocks_locked <= rocks_locked_target);
+            assert!(self.rocks_locked + rocks_locked_diff >= rocks_locked_target);
+        }
+
+        self.step_until(rocks_locked_target);
+    }
+
+    pub fn find_cycle(&mut self, timeout_in_moves: usize) -> Option<Cycle> {
+        let mut seen = HashMap::new();
+
+        // let test_cycle_length = self.move_cycle.len();
+
+        // 1. run a full move cycle
+        // 2. if hash is in map -> cycle found, return start and difference
+        // 3. if not -> store in map and continue with 1.
+
+        let start_moves = self.moves_performed;
+
+        let supercycle_length = self.move_cycle.len() * self.rock_cycle.len();
+
+        while self.moves_performed < start_moves + timeout_in_moves {
+            if self.moves_performed + supercycle_length > start_moves + timeout_in_moves {
+                // early abort
+                return None;
+            }
+
+            for _ in 0..supercycle_length {
+                self.one_step();
+            }
+
+            let hash = self.get_hash();
+            if let Some(start) = seen.get(&hash) {
+                return Some(Cycle {
+                    start: *start,
+                    period: self.moves_performed - start,
+                });
+            }
+            seen.insert(hash, self.moves_performed);
+            // println!("hash: {hash:016x} at move {}\r", self.moves_performed);
+            // println!("   counters: {:?}", self.column_counter);
+        }
+
+        return None;
+    }
+
+    fn get_hash(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
 }
 
-fn shift(rock_row: &u8, x: isize) -> u8 {
+fn shift(rock_row: u8, x: isize) -> u8 {
     if x < 0 {
         rock_row << -x
     } else {
@@ -173,7 +285,7 @@ impl std::fmt::Display for Field {
             if row_number >= rock_lower_y && row_number <= rock_upper_y {
                 let row_str = row_str.to_string();
                 let rock_row = self.rock[row_number - rock_lower_y];
-                let rock_row = shift(&rock_row, self.rock_position.0);
+                let rock_row = shift(rock_row, self.rock_position.0);
                 let rock_str = ROW_LOOKUP[rock_row as usize];
 
                 // zip row and rock, and display '@' when rock_str is a '#'
@@ -192,6 +304,18 @@ impl std::fmt::Display for Field {
         } else {
             write!(f, "| pruned|")
         }
+    }
+}
+
+impl Hash for Field {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // self.data.hash(state);
+        self.column_counter.hash(state);
+        self.move_cycle.hash(state);
+        self.rock.hash(state);
+        self.rock_position.hash(state);
+        self.is_rock_fresh.hash(state);
+        self.move_cycle.hash(state);
     }
 }
 
@@ -309,5 +433,59 @@ mod tests {
 
         assert_eq!(buf.len(), 99);
         assert_eq!(buf.get(5), Some(&6));
+    }
+
+    #[test]
+    fn test_hash() {
+        let mut field = Field::new(INPUT);
+        let mut field2 = Field::new(INPUT);
+
+        field.step_until(100);
+        field2.step_until(100);
+
+        assert_eq!(field.get_hash(), field2.get_hash());
+
+        field.one_step();
+        assert_ne!(field.get_hash(), field2.get_hash());
+
+        field2.one_step();
+        assert_eq!(field.get_hash(), field2.get_hash());
+
+        field2.one_step();
+        assert_ne!(field.get_hash(), field2.get_hash());
+    }
+
+    #[test]
+    fn test_find_cycle() {
+        let mut field = Field::new(INPUT);
+
+        let cycle = field.find_cycle(1_000);
+
+        assert!(cycle.is_some());
+        assert_eq!(
+            cycle.unwrap(),
+            Cycle {
+                start: 200,
+                period: 200,
+            }
+        );
+    }
+
+    #[test]
+    fn test_one_million_rocks() {
+        let mut field = Field::new(INPUT);
+
+        field.longstep_until(1_000_000);
+
+        assert_eq!(field.stack_height(), 1_514_288);
+    }
+
+    #[test]
+    fn test_one_trillion_rocks() {
+        let mut field = Field::new(INPUT);
+
+        field.longstep_until(1_000_000_000_000);
+
+        assert_eq!(field.stack_height(), 1_514_285_714_288);
     }
 }

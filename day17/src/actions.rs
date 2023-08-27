@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher};
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Direction {
     Left,
@@ -37,6 +39,12 @@ impl MoveCycle {
 
     pub fn len(&self) -> usize {
         self.data.len()
+    }
+}
+
+impl Hash for MoveCycle {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.current.hash(state);
     }
 }
 

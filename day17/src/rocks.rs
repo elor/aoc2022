@@ -1,5 +1,3 @@
-use std::iter::{Copied, Cycle};
-
 pub type Rock = [u8; 4];
 
 /// calculates the height of a rock
@@ -68,6 +66,10 @@ impl RockCycle {
         let rock = self.rocks[self.index];
         self.index = (self.index + 1) % self.rocks.len();
         rock
+    }
+
+    pub fn len(&self) -> usize {
+        return self.rocks.len();
     }
 }
 
